@@ -42,6 +42,7 @@
 
    ```bash
    cd /workspaces/PilotSwarm
+   docker ps -q | xargs -r docker kill
    HEX=$(printf '%s' "$(wslpath -w .)" | xxd -ps -c 256)
    code --folder-uri "vscode-remote://dev-container+${HEX}/workspaces/PilotSwarm"
    ```

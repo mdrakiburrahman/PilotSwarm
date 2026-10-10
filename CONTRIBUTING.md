@@ -2,63 +2,46 @@
 
 ## How to use, on a Linux machine
 
-1. Get a fresh new WSL machine up, from PowerShell 7 **as Administrator**:
+1. Get a fresh new WSL machine up:
 
    ```powershell
    $GIT_ROOT = git rev-parse --show-toplevel
    & "$GIT_ROOT\dev\bootstrap-dev-env.ps1"
    ```
 
-   Choose the VHD drive when prompted. **This deletes all existing WSL
-   distributions and Docker Desktop data without a reset confirmation.**
-   Back up WSL data first; do not use this to update an existing checkout.
+   Run PowerShell 7 as Administrator. This deletes all WSL distributions and
+   Docker Desktop data; back up first.
 
-1. Clone the repo, and open VS Code in it:
+1. Clone the repo, and open VSCode in it:
 
    ```bash
-   sudo install -d -m 0775 -o "$USER" -g "$USER" /workspaces
-   cd /workspaces
+   sudo mkdir -p /workspaces && sudo chmod 777 /workspaces && cd /workspaces
 
-   read -rp "Enter your name: " user_name
-   read -rp "Enter your email: " user_email
-   read -rp "Enter your fork URL: " git_fork_url
-   git config --global user.name "$user_name"
-   git config --global user.email "$user_email"
-   git clone "$git_fork_url" PilotSwarm
+   git config --global user.name "Your Name"
+   git config --global user.email "you@example.com"
+   git clone https://github.com/mdrakiburrahman/PilotSwarm.git
 
-   cd PilotSwarm
+   cd PilotSwarm/
    code .
    ```
 
-   Use the WSL filesystem, not `/mnt/c`. To reuse Git for Windows credentials:
-
-   ```bash
-   git config --global credential.helper \
-     '/mnt/c/"Program Files"/Git/mingw64/bin/git-credential-manager.exe'
-   ```
-
-1. Run the bootstrapper script, which installs all host tools idempotently:
+1. Run the bootstrapper script, that installs all tools idempotently:
 
    ```bash
    GIT_ROOT=$(git rev-parse --show-toplevel)
-   chmod +x "$GIT_ROOT/dev/bootstrap-dev-env.sh" && "$GIT_ROOT/dev/bootstrap-dev-env.sh"
-   npm ci
+   chmod +x ${GIT_ROOT}/dev/bootstrap-dev-env.sh && ${GIT_ROOT}/dev/bootstrap-dev-env.sh
    ```
-
-   It installs Docker, Node.js, Git and `gh`; `npm ci` installs the pinned Nx
-   and Dev Containers CLI. Reopen WSL after Docker group changes. Existing
-   Docker data is preserved.
 
 1. Launch devcontainer:
 
    ```bash
    cd /workspaces/PilotSwarm
-   npx --no-install nx run devcontainer:up
+   npm ci
    HEX=$(printf '%s' "$(wslpath -w .)" | od -An -tx1 | tr -d '[:space:]')
    code --folder-uri "vscode-remote://dev-container+${HEX}/workspaces/PilotSwarm"
    ```
 
-   Or run the same environment headlessly, from the WSL checkout:
+   Or run the same environment headlessly:
 
    ```bash
    npx --no-install nx run devcontainer:build
@@ -67,51 +50,36 @@
    npx --no-install nx run devcontainer:down
    ```
 
-   To enter it without VS Code:
+1. Install GitHub tooling:
 
    ```bash
-   npx --no-install devcontainer exec \
-     --workspace-folder . \
-     --config .devcontainer/devcontainer.json \
-     bash
+   curl -fsSL https://gh.io/copilot-install | bash
+   $HOME/.local/bin/copilot --yolo
    ```
 
-1. Authenticate GitHub tooling inside the devcontainer:
+1. Install `gh` CLI:
 
    ```bash
+   if ! command -v gh >/dev/null 2>&1; then
+   (type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
+	&& sudo mkdir -p -m 755 /etc/apt/keyrings \
+	&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+	&& cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+	&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+	&& sudo mkdir -p -m 755 /etc/apt/sources.list.d \
+	&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+	&& sudo apt update \
+	&& sudo apt install gh -y
+   fi
+
    gh auth login
    ```
 
-   `gh` is already installed. Credentials are shared with WSL through
-   `~/.config/gh`, never copied into Git. Live tests require Copilot entitlement
-   and model access in addition to GitHub login.
+1. With an authenticated GitHub CLI session, build and test inside the devcontainer:
 
-1. Build and test inside the devcontainer:
-
-   ```bash
-   npx nx run-many -t build --all
-   npx nx run-many -t verify --all
-   npx nx run app:test-e2e
-   npx nx run repo:test-local
-   ```
-
-   The last command runs the complete stock PostgreSQL integration suite.
-   No Azure account is required; live HorizonDB coverage is separate.
-
-1. Run the local platform inside the devcontainer:
-
-   ```bash
-   npx nx run local:up
-   npx nx run local:smoke
-   ```
-
-   Open `http://localhost:3001` on Windows and choose a dev persona.
-   After code changes, run `npx nx run local:restart`. Stop the platform with
-   `npx nx run local:down`, then run `npx nx run devcontainer:down` from WSL.
-   Add `-- --volumes` only to delete this workspace's volumes; cleanup never
-   prunes unrelated Docker resources.
-
-For terminal-only operation and diagnostics, see
-[Headless operations](docs/devcontainer/headless-operations.md).
-For contribution rules, see
-[Working on PilotSwarm](docs/developer/contributing/working-on-pilotswarm.md).
+```bash
+npx nx run-many -t build --all
+npx nx run-many -t verify --all
+npx nx run app:test-e2e
+npx nx run repo:test-local
+```

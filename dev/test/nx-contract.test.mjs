@@ -46,9 +46,10 @@ test("devcontainer test starts the same workspace before running checks", () => 
     assert.deepEqual(json(".devcontainer/project.json").targets.test.dependsOn, ["up", "scripts-test"]);
     const contributing = read("CONTRIBUTING.md");
     assert.match(contributing, /& "\$GIT_ROOT\\dev\\bootstrap-dev-env\.ps1"/);
-    assert.match(contributing, /read -rp "Enter your fork URL: "/);
-    assert.match(contributing, /npx --no-install devcontainer exec/);
-    assert.match(contributing, /--config \.devcontainer\/devcontainer\.json/);
+    assert.match(contributing, /git clone https:\/\/github\.com\/mdrakiburrahman\/PilotSwarm\.git/);
+    assert.match(contributing, /## How to use, on a Linux machine/);
+    assert.match(contributing, /Or run the same environment headlessly:/);
+    assert.match(contributing, /npx --no-install nx run devcontainer:test/);
     assert.doesNotMatch(contributing, /AcceptFullReset|CQ:\\/);
 });
 

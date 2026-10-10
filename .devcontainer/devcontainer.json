@@ -11,9 +11,10 @@
   "initializeCommand": ["node", ".devcontainer/scripts/lifecycle.mjs", "initialize"],
   "postCreateCommand": ["node", ".devcontainer/scripts/container.mjs", "install"],
   "waitFor": "postCreateCommand",
-  "forwardPorts": [3001],
+  "forwardPorts": [3001, 3002],
   "portsAttributes": {
-    "3001": {"label": "PilotSwarm local portal", "onAutoForward": "notify"}
+    "3001": {"label": "PilotSwarm local portal", "onAutoForward": "notify"},
+    "3002": {"label": "PilotSwarm UI stack (ui-up)", "onAutoForward": "notify"}
   },
   "customizations": {
     "vscode": {

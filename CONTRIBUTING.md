@@ -34,6 +34,11 @@
    chmod +x ${GIT_ROOT}/dev/bootstrap-dev-env.sh && ${GIT_ROOT}/dev/bootstrap-dev-env.sh
    ```
 
+   The bootstrapper adds you to the `docker` group, which only applies to new
+   login sessions. If `docker container ls` says `permission denied`, run
+   `newgrp docker` in the current shell, or restart WSL with `wsl --shutdown`
+   from Windows and reopen it. Do not `chmod 666 /var/run/docker.sock`.
+
 1. Launch devcontainer:
 
    ```bash
@@ -84,3 +89,23 @@ npx nx run-many -t verify --all
 npx nx run app:test-e2e
 npx nx run repo:test-local
 ```
+
+1. Run the full UI stack (PostgreSQL plus the web portal with two workers) from
+   `compose.ui.yml`. It builds the portal image, uses your `gh` login for
+   `GITHUB_TOKEN`, and works from the host or inside the devcontainer:
+
+```bash
+export CI=true
+npx nx run local:ui-up      # build, start, wait until healthy; then open http://localhost:3002
+npx nx run local:ui-logs    # follow the portal log
+npx nx run local:ui-down    # stop (the database volume is kept)
+```
+
+   The portal listens on the Docker host's loopback only. From WSL, browse
+   http://localhost:3002. Inside the devcontainer `localhost` is the container
+   itself, so forward port 3002 in the VS Code Ports tab, or use VS Code on
+   WSL. The portal's own log line says `:3001`; that is its port inside the
+   container, not the host port.
+
+   Sign in as Ada (admin), Alice, Bob, Carol or Dave. Set `PS_UI_PORT` to use a
+   different host port (3001 belongs to the devcontainer portal).

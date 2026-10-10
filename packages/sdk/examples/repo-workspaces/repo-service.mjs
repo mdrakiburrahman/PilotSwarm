@@ -334,9 +334,9 @@ export function createRepoService(options) {
             ["gc.auto", "0"],
             ["maintenance.auto", "false"],
             ["gc.pruneExpire", "never"],
-        ]) await runGit(["-C", mirror, "config", key, value]);
-        await runGit(["-C", mirror, "config", "--add", "remote.origin.fetch", "+refs/tags/*:refs/tags/*"]);
-        await runGit(["-C", mirror, "fetch", "-q", "--prune", "origin"]);
+        ]) await runGit(["--git-dir", mirror, "config", key, value]);
+        await runGit(["--git-dir", mirror, "config", "--add", "remote.origin.fetch", "+refs/tags/*:refs/tags/*"]);
+        await runGit(["--git-dir", mirror, "fetch", "-q", "--prune", "origin"]);
         await followUpstreamHead(mirror);
         return mirror;
     }
@@ -347,9 +347,9 @@ export function createRepoService(options) {
      * names a missing branch checks out nothing.
      */
     async function followUpstreamHead(mirror) {
-        const symref = await runGit(["-C", mirror, "ls-remote", "--symref", "origin", "HEAD"]).catch(() => "");
+        const symref = await runGit(["--git-dir", mirror, "ls-remote", "--symref", "origin", "HEAD"]).catch(() => "");
         const match = /^ref:\s+(refs\/heads\/\S+)\s+HEAD/m.exec(symref);
-        if (match) await runGit(["-C", mirror, "symbolic-ref", "HEAD", match[1]]);
+        if (match) await runGit(["--git-dir", mirror, "symbolic-ref", "HEAD", match[1]]);
     }
 
     /**
@@ -710,7 +710,7 @@ export function createRepoService(options) {
             requireAdmin(req);
             repoConfig(repo);
             const mirror = await ensureMirror(repo);
-            await runGit(["-C", mirror, "fetch", "-q", "--prune", "origin"]);
+            await runGit(["--git-dir", mirror, "fetch", "-q", "--prune", "origin"]);
             return { fetched: true };
         },
 
@@ -720,7 +720,7 @@ export function createRepoService(options) {
             if (!Object.hasOwn(MAINTENANCE_OPERATIONS, String(operation))) {
                 throw new ServiceError(400, "MAINTENANCE_UNKNOWN", `unknown maintenance operation "${operation}"; use one of ${Object.keys(MAINTENANCE_OPERATIONS).join(", ")}`);
             }
-            await runGit(["-C", mirrorPath(repo), ...MAINTENANCE_OPERATIONS[operation]]);
+            await runGit(["--git-dir", mirrorPath(repo), ...MAINTENANCE_OPERATIONS[operation]]);
             return { ran: operation };
         },
 
@@ -760,7 +760,7 @@ export function createRepoService(options) {
         for (const [repo, config] of Object.entries(repos)) {
             const mirror = mirrorPath(repo);
             if (!fs.existsSync(mirror)) continue;
-            await runGit(["-C", mirror, "fetch", "-q", "--prune", "origin"]);
+            await runGit(["--git-dir", mirror, "fetch", "-q", "--prune", "origin"]);
             if (config?.sandbox) await sandboxes.syncFromMirror(repo, mirror);
         }
     }

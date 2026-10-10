@@ -4,23 +4,67 @@
   "targets": {
     "up": {
       "executor": "nx:run-commands",
-      "options": { "command": "node .devcontainer/scripts/container.mjs local up", "cwd": "." }
+      "options": {
+        "command": "node .devcontainer/scripts/container.mjs local up",
+        "cwd": "."
+      }
     },
     "restart": {
       "executor": "nx:run-commands",
-      "options": { "command": "node .devcontainer/scripts/container.mjs local restart", "cwd": "." }
+      "options": {
+        "command": "node .devcontainer/scripts/container.mjs local restart",
+        "cwd": "."
+      }
     },
     "smoke": {
       "executor": "nx:run-commands",
-      "options": { "command": "node .devcontainer/scripts/container.mjs local smoke", "cwd": "." }
+      "options": {
+        "command": "node .devcontainer/scripts/container.mjs local smoke",
+        "cwd": "."
+      }
     },
     "down": {
       "executor": "nx:run-commands",
-      "options": { "command": "node .devcontainer/scripts/container.mjs local down", "cwd": "." }
+      "options": {
+        "command": "node .devcontainer/scripts/container.mjs local down",
+        "cwd": "."
+      }
     },
     "logs": {
       "executor": "nx:run-commands",
-      "options": { "command": "node .devcontainer/scripts/container.mjs local logs", "cwd": "." }
+      "options": {
+        "command": "node .devcontainer/scripts/container.mjs local logs",
+        "cwd": "."
+      }
+    },
+    "ui-up": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        {
+          "projects": [
+            "app"
+          ],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "GITHUB_TOKEN=\"${GITHUB_TOKEN:-$(gh auth token)}\" docker compose -f compose.ui.yml up --build --wait",
+        "cwd": "."
+      }
+    },
+    "ui-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "GITHUB_TOKEN=unused docker compose -f compose.ui.yml logs --tail 20 -f portal",
+        "cwd": "."
+      }
+    },
+    "ui-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "GITHUB_TOKEN=unused docker compose -f compose.ui.yml down",
+        "cwd": "."
+      }
     }
   }
 }

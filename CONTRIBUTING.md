@@ -33,15 +33,11 @@
    chmod +x ${GIT_ROOT}/dev/bootstrap-dev-env.sh && ${GIT_ROOT}/dev/bootstrap-dev-env.sh
    ```
 
-   The bootstrapper adds you to the `docker` group, which only applies to new
-   login sessions. If `docker container ls` says `permission denied`, run
-   `newgrp docker` in the current shell, or restart WSL with `wsl --shutdown`
-   from Windows and reopen it. Do not `chmod 666 /var/run/docker.sock`.
-
-1. Launch devcontainer:
+2. Launch devcontainer:
 
    ```bash
    cd /workspaces/PilotSwarm
+   sudo chmod 666 /var/run/docker.sock
    docker ps -q | xargs -r docker kill
    HEX=$(printf '%s' "$(wslpath -w .)" | xxd -ps -c 256)
    code --folder-uri "vscode-remote://dev-container+${HEX}/workspaces/PilotSwarm"
@@ -56,14 +52,14 @@
    npx --no-install nx run devcontainer:down
    ```
 
-1. Install GitHub tooling:
+3. Install GitHub tooling:
 
    ```bash
    curl -fsSL https://gh.io/copilot-install | bash
    $HOME/.local/bin/copilot --yolo
    ```
 
-1. Install `gh` CLI:
+4. Install `gh` CLI:
 
    ```bash
    if ! command -v gh >/dev/null 2>&1; then
@@ -81,7 +77,7 @@
    gh auth login
    ```
 
-1. With an authenticated GitHub CLI session, build and test inside the devcontainer:
+5. With an authenticated GitHub CLI session, build and test inside the devcontainer:
 
 ```bash
 npx nx run-many -t build --all

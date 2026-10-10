@@ -146,7 +146,7 @@ test('Windows destructive commands are gated, checked, and exact-targeted', () =
   assert.doesNotMatch(windows, /Stop-Process\s+-Name|taskkill|Invoke-Expression|cmd\.exe|Remove-Item\s+-Path/);
   assert.match(windows, /WSL inventory changed since preflight/);
   assert.match(windows, /Unconfirmed new distribution/);
-  assert.match(windows, /'--distribution', 'Ubuntu-24\.04', '--location', \$VhdPath, '--no-launch'/);
+  assert.match(windows, /'--distribution', 'Ubuntu-24\.04', '--location', \$VhdPath\)/);
   assert.match(windows, /Clear-VhdDirectory \$VhdPath/);
   assert.ok(windows.indexOf('Clear-VhdDirectory $VhdPath') >
     windows.indexOf("Invoke-Checked wsl.exe @('--unregister', $distro)"));
@@ -186,14 +186,20 @@ catch { if ($null -ne $global:removed) { exit 1 }; exit 0 }`]);
   assert.equal(failure.status, 0, failure.output);
 });
 
-test('Windows bootstrap enters Ubuntu interactively after installing and selecting it', () => {
-  const launch = "Invoke-Checked wsl.exe @('--distribution', 'Ubuntu-24.04')";
+test('Windows bootstrap uses the reference install-and-launch operation', () => {
+  const launch = "Invoke-Checked wsl.exe @('--install', '--distribution', 'Ubuntu-24.04', '--location', $VhdPath)";
   assert.ok(windows.indexOf(launch) >
-    windows.indexOf("Invoke-Checked wsl.exe @('--set-default', 'Ubuntu-24.04')"));
-  assert.ok(windows.indexOf(launch) >
-    windows.indexOf("'--location', $VhdPath, '--no-launch'"));
+    windows.indexOf("Invoke-Checked wsl.exe @('--set-default-version', '2')"));
+  assert.doesNotMatch(windows, /--no-launch/);
+  assert.doesNotMatch(windows, /Invoke-Checked wsl\.exe @\('--distribution', 'Ubuntu-24\.04'\)/);
   assert.doesNotMatch(windows, /Launch wsl\.exe -d Ubuntu-24\.04 to finish/);
-  assert.match(windows, /Entering Ubuntu-24\.04/);
+  assert.match(windows, /Installing Ubuntu to \$VhdPath/);
+});
+
+test('Linux bootstrap installs repository tooling and reference hex command', () => {
+  assert.match(linux, /rsync git xxd/);
+  assert.match(linux, /cd "\$repo_root"\r?\nnpm ci/);
+  assert.match(linux, /npx --no-install devcontainer --version/);
 });
 
 test('Linux shell syntax parses without running commands', { skip: !bash }, () => {

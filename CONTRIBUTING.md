@@ -37,8 +37,7 @@
 
    ```bash
    cd /workspaces/PilotSwarm
-   npm ci
-   HEX=$(printf '%s' "$(wslpath -w .)" | od -An -tx1 | tr -d '[:space:]')
+   HEX=$(printf '%s' "$(wslpath -w .)" | xxd -ps -c 256)
    code --folder-uri "vscode-remote://dev-container+${HEX}/workspaces/PilotSwarm"
    ```
 

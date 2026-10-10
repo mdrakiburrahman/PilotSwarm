@@ -23,7 +23,7 @@ the actual host and checks prerequisites before deleting **all WSL distributions
 and Docker Desktop data**, without a typed reset confirmation. It also changes Defender exclusions,
 backs up/replaces global `.wslconfig`, and installs Ubuntu-24.04. This is a
 fresh-machine operation, not a normal update command.
-When setup finishes, the script enters Ubuntu interactively for Linux user
+The final `wsl --install` launches Ubuntu for Linux user
 setup and the following clone steps. Exit that shell to return to PowerShell.
 
 For headless execution, supply the path instead of using the drive picker:
@@ -53,12 +53,12 @@ cd PilotSwarm
 GIT_ROOT=$(git rev-parse --show-toplevel)
 chmod +x "$GIT_ROOT/dev/bootstrap-dev-env.sh"
 "$GIT_ROOT/dev/bootstrap-dev-env.sh"
-npm ci
 ```
 
 The Linux bootstrap preserves existing Docker containers, volumes and daemon
 configuration. It installs native Node 24, Git 2.46+, Docker Engine,
-Compose/Buildx, GitHub CLI and shell prerequisites. Reopen the WSL terminal
+Compose/Buildx, GitHub CLI and shell prerequisites, then runs `npm ci` to install
+the repository-pinned Nx and Dev Containers CLI. Reopen the WSL terminal
 after Docker group changes. If systemd needs enabling, restart WSL as instructed
 and rerun the bootstrap. Docker group membership is root-equivalent access;
 the socket is not made world-writable.

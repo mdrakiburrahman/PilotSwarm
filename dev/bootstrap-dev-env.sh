@@ -10,7 +10,7 @@ usage() {
   printf '%s\n' 'Usage: bash dev/bootstrap-dev-env.sh [--dry-run | --preflight-only]' \
     'Run as your normal Ubuntu 24.04 user from a native Linux PilotSwarm checkout.' \
     'Uses sudo for package/service setup. Never resets Docker or authenticates gh.' \
-    'After setup: open a new login shell for Docker group access; run npm ci.'
+    'After setup: open a new login shell for Docker group access; launch the devcontainer.'
 }
 mode=install
 for argument in "$@"; do
@@ -27,7 +27,7 @@ if [[ "$mode" == dry-run ]]; then
   printf '%s\n' \
     'DRY RUN: no inventory, sudo, package installation, writes or service changes.' \
     'Preflight: Ubuntu 24.04; normal user; native Linux git checkout (not /mnt/*); sudo; apt; systemd/WSL.' \
-    'Install: ca-certificates curl gnupg python3 software-properties-common build-essential pkg-config unzip zip jq lsof tmux openssh-client rsync git.' \
+    'Install: ca-certificates curl gnupg python3 software-properties-common build-essential pkg-config unzip zip jq lsof tmux openssh-client rsync git xxd.' \
     'Git >=2.46: upgrade from ppa:git-core/ppa only if the Ubuntu package is too old.' \
     'Repositories: Docker Ubuntu noble; GitHub CLI; NodeSource node_24.x nodistro.' \
     'Install: docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin gh nodejs (Node 24).' \
@@ -35,7 +35,7 @@ if [[ "$mode" == dry-run ]]; then
     'If WSL systemd is disabled, merge boot.systemd=true into /etc/wsl.conf, then stop for a WSL restart.' \
     'Add current user to docker group (root-equivalent access); never chmod 666, prune or reset Docker.' \
     'Enable systemd Docker; validate Node24/npm/Git>=2.46/Docker/Compose/Buildx/gh.' \
-    'Next: new login shell; npm ci; use repository-pinned Nx and Dev Containers CLI.'
+    'Install repository dependencies with npm ci; use repository-pinned Nx and Dev Containers CLI.'
   exit 0
 fi
 
@@ -83,7 +83,7 @@ export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
   ca-certificates curl gnupg python3 software-properties-common build-essential \
-  pkg-config unzip zip jq lsof tmux openssh-client rsync git
+  pkg-config unzip zip jq lsof tmux openssh-client rsync git xxd
 
 if [[ "$(cat /proc/1/comm)" != systemd ]]; then
   # Preserve all other WSL settings; configparser is not used because it drops comments.
@@ -177,6 +177,8 @@ sudo dockerd --validate --config-file=/etc/docker/daemon.json
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$(id -un)"
 sudo docker info >/dev/null
+cd "$repo_root"
+npm ci
 docker --version
 docker compose version
 docker buildx version
@@ -184,8 +186,9 @@ node --version
 npm --version
 git --version
 gh --version
+npx --no-install devcontainer --version
 printf '%s\n' \
   'Host bootstrap complete. Existing Docker containers, volumes and daemon settings were preserved.' \
   'Docker group membership grants root-equivalent access. Open a new login shell, then verify docker info without sudo.' \
-  'Run npm ci in the checkout for repository-pinned Nx/Dev Containers CLI. No global npm tools installed.' \
+  'Repository-pinned Nx/Dev Containers CLI installed. No global npm tools installed.' \
   'gh login and Copilot entitlement checks are separate steps; no credentials were read or configured.'

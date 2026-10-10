@@ -11,25 +11,26 @@ Start with [CONTRIBUTING.md](../../CONTRIBUTING.md). Back up WSL data outside
 WSL before running the reset. From elevated PowerShell 7:
 
 ```powershell
-.\dev\bootstrap-dev-env.ps1 -VhdPath C:\VHD\PilotSwarm -PreflightOnly
-.\dev\bootstrap-dev-env.ps1 -VhdPath C:\VHD\PilotSwarm -FullReset
+$GIT_ROOT = git rev-parse --show-toplevel
+& "$GIT_ROOT\dev\bootstrap-dev-env.ps1"
 ```
 
-The VHD directory must be empty. The script inventories the actual host,
-checks prerequisites, and requires confirmation before deleting **all WSL
-distributions and Docker Desktop data**. It also changes Defender exclusions,
+Choose a drive from the same numbered picker as the reference workflow. The
+destination is `<drive>:\VHD\PilotSwarm` and must be empty. The script inventories
+the actual host and checks prerequisites before deleting **all WSL distributions
+and Docker Desktop data**, without a typed reset confirmation. It also changes Defender exclusions,
 backs up/replaces global `.wslconfig`, and installs Ubuntu-24.04. This is a
 fresh-machine operation, not a normal update command.
 
-For an explicitly authorized unattended reset:
+For headless execution, supply the path instead of using the drive picker:
 
 ```powershell
-.\dev\bootstrap-dev-env.ps1 -VhdPath C:\VHD\PilotSwarm -FullReset -Unattended `
-  -AcceptFullReset "RESET ALL WSL DISTROS AND REMOVE DOCKER DESKTOP"
+.\dev\bootstrap-dev-env.ps1 -VhdPath C:\VHD\PilotSwarm
 ```
 
 `-DryRun` prints the plan without inventory or changes. OS elevation, reboot
 requirements and first-launch Linux user setup cannot be bypassed by Nx.
+Use `-VhdPath <path> -PreflightOnly` for read-only host inspection.
 
 ## Clone and bootstrap WSL
 
@@ -38,10 +39,16 @@ Finish Ubuntu's first-launch user setup. Then, as that normal user:
 ```bash
 sudo install -d -m 0775 -o "$USER" -g "$USER" /workspaces
 cd /workspaces
-git clone <your-fork-url> PilotSwarm
+read -rp "Enter your name (for example, FirstName LastName): " user_name
+read -rp "Enter your email: " user_email
+read -rp "Enter your fork URL: " git_fork_url
+git config --global user.name "$user_name"
+git config --global user.email "$user_email"
+git clone "$git_fork_url" PilotSwarm
 cd PilotSwarm
-git switch <branch-under-test>
-bash dev/bootstrap-dev-env.sh
+GIT_ROOT=$(git rev-parse --show-toplevel)
+chmod +x "$GIT_ROOT/dev/bootstrap-dev-env.sh"
+"$GIT_ROOT/dev/bootstrap-dev-env.sh"
 npm ci
 ```
 
@@ -67,7 +74,7 @@ From the WSL checkout:
 npx nx run devcontainer:build
 npx nx run devcontainer:up
 npx nx run devcontainer:doctor
-npx nx run devcontainer:exec -- bash
+npx --no-install devcontainer exec --workspace-folder . --config .devcontainer/devcontainer.json bash
 ```
 
 These use the pinned Dev Containers CLI. The shared initialization hook builds
@@ -76,6 +83,10 @@ headless entry use `.devcontainer/devcontainer.json` to start that image.
 Post-create installs repository dependencies. Root and
 nested workspace `node_modules` are separate container volumes, so host
 `npm ci` cannot replace Linux platform dependencies.
+The additional `devcontainer:exec -- <command>` target dispatches to that same
+CLI/config; it is optional, not a different entry workflow. `devcontainer:test`
+starts the workspace and runs script contracts before container verification,
+matching the reference target ordering.
 
 Dispatch the same flow from Windows:
 

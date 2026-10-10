@@ -29,6 +29,7 @@
     },
     "test": {
       "executor": "nx:run-commands",
+      "dependsOn": ["up", "scripts-test"],
       "options": { "command": "node .devcontainer/scripts/lifecycle.mjs test", "cwd": "." }
     },
     "down": {

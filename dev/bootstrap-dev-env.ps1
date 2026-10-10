@@ -7,21 +7,20 @@ DESTRUCTIVE: unregisters EVERY WSL distribution, removes Docker Desktop and its
 exact data directories, adds Defender exclusions and replaces global .wslconfig.
 Back up source and WSL data outside WSL first. Run elevated in PowerShell 7.
 DryRun is a portable, read-free plan; PreflightOnly inventories the actual host.
+With no arguments, choose the VHD drive and proceed with the reset.
+.EXAMPLE
+pwsh -File .\dev\bootstrap-dev-env.ps1
 .EXAMPLE
 pwsh -File .\dev\bootstrap-dev-env.ps1 -VhdPath D:\VHD\PilotSwarm -DryRun
 .EXAMPLE
 pwsh -File .\dev\bootstrap-dev-env.ps1 -VhdPath D:\VHD\PilotSwarm -PreflightOnly
 .EXAMPLE
 pwsh -File .\dev\bootstrap-dev-env.ps1 -VhdPath D:\VHD\PilotSwarm -FullReset
-.EXAMPLE
-pwsh -File .\dev\bootstrap-dev-env.ps1 -VhdPath D:\VHD\PilotSwarm -FullReset -Unattended -AcceptFullReset "RESET ALL WSL DISTROS AND REMOVE DOCKER DESKTOP"
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][string] $VhdPath,
+    [string] $VhdPath,
     [switch] $FullReset,
-    [switch] $Unattended,
-    [string] $AcceptFullReset,
     [switch] $DryRun,
     [switch] $PreflightOnly,
     [switch] $AllowLowResources
@@ -29,7 +28,6 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$confirmation = 'RESET ALL WSL DISTROS AND REMOVE DOCKER DESKTOP'
 
 function Invoke-Checked {
     param([string] $Executable, [string[]] $Arguments, [int[]] $AllowedExitCodes = @(0))
@@ -74,19 +72,46 @@ function Assert-NoReparsePoint {
     }
 }
 
+function Select-VhdPath {
+    $drives = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' |
+        Sort-Object -Property FreeSpace -Descending)
+    if (-not $drives.Count) { throw 'No local fixed drives found to host the WSL VHD.' }
+    Write-Host 'Choose a drive to store the WSL VHD (at least 50GB free recommended):'
+    for ($i = 0; $i -lt $drives.Count; $i++) {
+        Write-Host ('  [{0}] {1}\VHD\PilotSwarm ({2}GB free)' -f
+            ($i + 1), $drives[$i].DeviceID, [math]::Floor($drives[$i].FreeSpace / 1GB))
+    }
+    do {
+        $pick = Read-Host "Pick a drive number [1-$($drives.Count)]"
+        $number = 0
+    } while (-not [int]::TryParse($pick, [ref]$number) -or $number -lt 1 -or $number -gt $drives.Count)
+    return "$($drives[$number - 1].DeviceID)\VHD\PilotSwarm"
+}
+
 try {
+    if (-not $PSBoundParameters.ContainsKey('FullReset') -and -not $DryRun -and -not $PreflightOnly) {
+        $FullReset = $true
+    }
+    if (-not $VhdPath) {
+        if ($DryRun) { $VhdPath = 'C:\VHD\PilotSwarm' }
+        else {
+            if (-not $IsWindows) { throw 'Windows is required.' }
+            $pickerIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+            $pickerPrincipal = [Security.Principal.WindowsPrincipal]::new($pickerIdentity)
+            if (-not $pickerPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                throw 'Run PowerShell 7 as Administrator.'
+            }
+            $VhdPath = Select-VhdPath
+        }
+    }
     # Validate lexically before the portable dry-run; never evaluate a user-supplied command.
     if ($VhdPath -notmatch '^[A-Za-z]:\\[^:*?"<>|]+$' -or $VhdPath -match '[\r\n]' -or
         @($VhdPath.Split('\') | Where-Object { $_ -in @('.', '..') }).Count) {
         throw 'VhdPath must be an absolute local drive subdirectory, not a root, UNC path or traversal.'
     }
     if ($DryRun -and $PreflightOnly) { throw 'Choose DryRun or PreflightOnly, not both.' }
-    if ($Unattended -and (-not $FullReset -or $AcceptFullReset -cne $confirmation)) {
-        throw "Unattended reset requires -FullReset and -AcceptFullReset '$confirmation'."
-    }
-    if ($AcceptFullReset -and -not $Unattended) { throw 'AcceptFullReset is valid only with Unattended.' }
     if (-not $DryRun -and -not $PreflightOnly -and -not $FullReset) {
-        throw 'No default reset: choose -PreflightOnly, -DryRun or explicitly -FullReset.'
+        throw 'Reset disabled: choose -PreflightOnly or -DryRun for read-only operation.'
     }
     Write-Host "DESTRUCTIVE PLAN: ALL WSL distributions and Docker Desktop data will be deleted."
     Write-Host "Ubuntu-24.04 VHD destination: $VhdPath"
@@ -162,10 +187,6 @@ try {
         if (Test-Path -LiteralPath $path) { Assert-NoReparsePoint $path -CheckDescendants }
     }
     if ($PreflightOnly) { Write-Host 'Preflight passed; no host changes performed.'; return }
-    if (-not $Unattended) {
-        $answer = Read-Host "Back up ALL WSL data outside WSL. Type exactly: $confirmation"
-        if ($answer -cne $confirmation) { throw 'Confirmation did not match; no reset performed.' }
-    }
 
     # Check update support and version before deleting any data.
     Invoke-Checked wsl.exe @('--update')
@@ -176,7 +197,7 @@ try {
     }
     $currentDistros = @(Get-Distros)
     if ((($distros | Sort-Object) -join "`0") -cne (($currentDistros | Sort-Object) -join "`0")) {
-        throw 'WSL inventory changed since confirmation. Rerun preflight; no reset performed.'
+        throw 'WSL inventory changed since preflight. Rerun preflight; no reset performed.'
     }
     # Stop only PIDs whose executable is inside an exact Docker Desktop installation.
     foreach ($process in @(Get-CimInstance Win32_Process)) {
@@ -223,7 +244,7 @@ try {
     Invoke-Checked wsl.exe @('--shutdown')
     Invoke-Checked winget.exe @('install', '--exact', '--id', 'Git.GCM', '--silent',
         '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--no-upgrade') `
-        -AllowedExitCodes @(0, -1978335189) # WinGet: already installed/no applicable update.
+        -AllowedExitCodes @(0, -1978335189, -1978335135) # WinGet: no applicable update / package already installed.
     $extensions = @(Invoke-Checked code @('--list-extensions'))
     if ('Microsoft.wavework' -in $extensions) {
         Invoke-Checked code @('--uninstall-extension', 'Microsoft.wavework')

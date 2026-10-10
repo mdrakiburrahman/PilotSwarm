@@ -42,6 +42,16 @@ test("build graph retains workspace ordering and existing npm commands", () => {
     assert.match(json("package.json").scripts.build, /packages\/sdk.*pilotswarm-horizon-store.*pilotswarm/);
 });
 
+test("devcontainer test starts the same workspace before running checks", () => {
+    assert.deepEqual(json(".devcontainer/project.json").targets.test.dependsOn, ["up", "scripts-test"]);
+    const contributing = read("CONTRIBUTING.md");
+    assert.match(contributing, /& "\$GIT_ROOT\\dev\\bootstrap-dev-env\.ps1"/);
+    assert.match(contributing, /read -rp "Enter your fork URL: "/);
+    assert.match(contributing, /npx --no-install devcontainer exec/);
+    assert.match(contributing, /--config \.devcontainer\/devcontainer\.json/);
+    assert.doesNotMatch(contributing, /AcceptFullReset|CQ:\\/);
+});
+
 test("verify aggregation excludes live gates, lifecycle and interactive auth", () => {
     const projects = ["project.json", "packages/sdk/project.json", "packages/app/project.json",
         "packages/horizon-store/project.json", ".devcontainer/project.json", "tools/auth-automation/project.json"];

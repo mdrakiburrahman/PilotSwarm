@@ -10,7 +10,6 @@ const windowsScript = resolve(root, 'dev', 'bootstrap-dev-env.ps1');
 const linuxScript = resolve(root, 'dev', 'bootstrap-dev-env.sh');
 const windows = readFileSync(windowsScript, 'utf8');
 const linux = readFileSync(linuxScript, 'utf8');
-const confirmation = 'RESET ALL WSL DISTROS AND REMOVE DOCKER DESKTOP';
 // Never use Windows' bash.exe alias: it launches/mutates WSL rather than Git Bash.
 const bash = process.platform === 'win32'
   ? [
@@ -74,23 +73,55 @@ test('Windows rejects unsafe path shapes before any host inspection', { skip: !h
   }
 });
 
-test('Windows refuses default reset and unattended opt-in without the exact phrase', { skip: !hasPwsh }, () => {
-  const missingReset = runWindows(['-VhdPath', 'D:\\VHD\\PilotSwarm']);
-  assert.notEqual(missingReset.status, 0);
-  assert.match(missingReset.output, /No default reset/);
-  for (const args of [
-    ['-Unattended'],
-    ['-FullReset', '-Unattended'],
-    ['-FullReset', '-Unattended', '-AcceptFullReset', confirmation.toLowerCase()],
-    ['-AcceptFullReset', confirmation],
-    ['-DryRun', '-PreflightOnly'],
-  ]) {
-    const result = runWindows(['-VhdPath', 'D:\\VHD\\PilotSwarm', '-DryRun', ...args]);
-    assert.notEqual(result.status, 0, result.output);
-  }
+test('Windows supports reference-style setup and read-only previews without extra reset flags', { skip: !hasPwsh }, () => {
+  const preview = runWindows(['-DryRun']);
+  assert.equal(preview.status, 0, preview.output);
+  assert.match(preview.output, /DRY RUN: no host inventory/);
+  assert.match(windows, /if \(-not \$PSBoundParameters\.ContainsKey\('FullReset'\)/);
+  assert.match(windows, /\$VhdPath = Select-VhdPath/);
+  const invalid = runWindows(['-VhdPath', 'D:\\VHD\\PilotSwarm', '-DryRun', '-PreflightOnly']);
+  assert.notEqual(invalid.status, 0, invalid.output);
   const valid = runWindows(['-VhdPath', 'D:\\VHD\\PilotSwarm', '-DryRun',
-    '-FullReset', '-Unattended', '-AcceptFullReset', confirmation]);
+    '-FullReset']);
   assert.equal(valid.status, 0, valid.output);
+});
+
+test('Windows drive picker lists fixed drives by space and reprompts invalid choices', { skip: !hasPwsh }, () => {
+  const picker = windows.match(/function Select-VhdPath \{[\s\S]*?\r?\n\}/)?.[0];
+  assert.ok(picker);
+  const expression = `${picker}
+function Get-CimInstance {
+    @([pscustomobject]@{ DeviceID = 'C:'; FreeSpace = 60GB },
+      [pscustomobject]@{ DeviceID = 'Q:'; FreeSpace = 200GB })
+}
+$global:choices = [System.Collections.Generic.Queue[string]]::new()
+foreach ($choice in @('invalid', '0', '3', '1')) { $global:choices.Enqueue($choice) }
+function Read-Host { return $global:choices.Dequeue() }
+$selected = Select-VhdPath
+if ($selected -ne 'Q:\\VHD\\PilotSwarm' -or $global:choices.Count -ne 0) { exit 1 }
+Write-Output "Selected: $selected"`;
+  const result = run(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', expression]);
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /\[1\] Q:\\VHD\\PilotSwarm/);
+  assert.match(result.output, /Selected: Q:\\VHD\\PilotSwarm/);
+  const noDrives = run(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+    `${picker}\nfunction Get-CimInstance { }\ntry { Select-VhdPath; exit 0 } catch { exit 1 }`]);
+  assert.equal(noDrives.status, 1, noDrives.output);
+});
+
+test('Windows GCM installation accepts already-installed results but rejects other errors', { skip: !hasPwsh }, () => {
+  const helper = windows.match(/function Invoke-Checked \{[\s\S]*?\r?\n\}/)?.[0];
+  const install = windows.match(/Invoke-Checked winget\.exe @\('install', '--exact', '--id', 'Git\.GCM'[\s\S]*?-AllowedExitCodes @\([^)]+\)/)?.[0];
+  assert.ok(helper);
+  assert.ok(install);
+  for (const exitCode of [0, -1978335189, -1978335135, 42]) {
+    const expression = `${helper}
+function winget.exe { $global:LASTEXITCODE = ${exitCode} }
+try { ${install}; exit 0 } catch { Write-Error $_ -ErrorAction Continue; exit 1 }`;
+    const result = run(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', expression]);
+    assert.equal(result.status, exitCode === 42 ? 1 : 0, result.output);
+    if (exitCode === 42) assert.match(result.output, /failed with exit code 42/);
+  }
 });
 
 test('Windows destructive commands are gated, checked, and exact-targeted', () => {
@@ -98,7 +129,8 @@ test('Windows destructive commands are gated, checked, and exact-targeted', () =
   assert.match(windows, /WindowsBuiltInRole\]::Administrator/);
   assert.match(windows, /if \(\$LASTEXITCODE -notin \$AllowedExitCodes\)/);
   assert.match(windows, /if \(\$PreflightOnly\).*return/);
-  const confirmationPosition = windows.indexOf('$answer = Read-Host');
+  assert.doesNotMatch(windows, /Read-Host.*Back up ALL|Type exactly/);
+  const preflightPosition = windows.indexOf('if ($PreflightOnly)');
   for (const operation of [
     "Invoke-Checked wsl.exe @('--update')",
     'Stop-Process -Id $process.ProcessId',
@@ -107,12 +139,12 @@ test('Windows destructive commands are gated, checked, and exact-targeted', () =
     'Remove-Item -LiteralPath $path -Recurse -Force',
     'Add-MpPreference -ExclusionPath',
   ]) {
-    assert.ok(windows.indexOf(operation) > confirmationPosition, `unguarded ${operation}`);
+    assert.ok(windows.indexOf(operation) > preflightPosition, `unguarded ${operation}`);
   }
   assert.match(windows, /ExecutablePath\.StartsWith/);
   assert.match(windows, /Assert-NoReparsePoint \$path -CheckDescendants/);
   assert.doesNotMatch(windows, /Stop-Process\s+-Name|taskkill|Invoke-Expression|cmd\.exe|Remove-Item\s+-Path/);
-  assert.match(windows, /WSL inventory changed since confirmation/);
+  assert.match(windows, /WSL inventory changed since preflight/);
   assert.match(windows, /Unconfirmed new distribution/);
   assert.match(windows, /'--distribution', 'Ubuntu-24\.04', '--location', \$VhdPath, '--no-launch'/);
   assert.match(windows, /VhdPath must be empty/);

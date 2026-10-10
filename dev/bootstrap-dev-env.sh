@@ -3,6 +3,9 @@
 set -Eeuo pipefail
 trap 'printf "Bootstrap failed at line %s (exit %s).\n" "$LINENO" "$?" >&2' ERR
 
+# Use Linux tooling rather than Windows executables inherited through WSL.
+export PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '^/mnt/[a-z]/' | paste -sd ':' -)"
+
 usage() {
   printf '%s\n' 'Usage: bash dev/bootstrap-dev-env.sh [--dry-run | --preflight-only]' \
     'Run as your normal Ubuntu 24.04 user from a native Linux PilotSwarm checkout.' \

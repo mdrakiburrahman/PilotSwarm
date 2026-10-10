@@ -276,8 +276,9 @@ try {
     Invoke-Checked wsl.exe @('--install', '--distribution', 'Ubuntu-24.04', '--location', $VhdPath, '--no-launch')
     if ('Ubuntu-24.04' -notin @(Get-Distros)) { throw 'Ubuntu-24.04 installation did not register; reboot may be required.' }
     Invoke-Checked wsl.exe @('--set-default', 'Ubuntu-24.04')
-    Write-Host 'Reset complete. Launch wsl.exe -d Ubuntu-24.04 to finish Linux user setup.'
+    Write-Host 'Reset complete. Entering Ubuntu-24.04; finish Linux user setup when prompted.'
     Write-Host 'Clone into /workspaces/PilotSwarm (never /mnt/c), then run bash dev/bootstrap-dev-env.sh.'
+    Invoke-Checked wsl.exe @('--distribution', 'Ubuntu-24.04')
 } catch {
     Write-Error $_ -ErrorAction Continue
     exit 1

@@ -186,6 +186,16 @@ catch { if ($null -ne $global:removed) { exit 1 }; exit 0 }`]);
   assert.equal(failure.status, 0, failure.output);
 });
 
+test('Windows bootstrap enters Ubuntu interactively after installing and selecting it', () => {
+  const launch = "Invoke-Checked wsl.exe @('--distribution', 'Ubuntu-24.04')";
+  assert.ok(windows.indexOf(launch) >
+    windows.indexOf("Invoke-Checked wsl.exe @('--set-default', 'Ubuntu-24.04')"));
+  assert.ok(windows.indexOf(launch) >
+    windows.indexOf("'--location', $VhdPath, '--no-launch'"));
+  assert.doesNotMatch(windows, /Launch wsl\.exe -d Ubuntu-24\.04 to finish/);
+  assert.match(windows, /Entering Ubuntu-24\.04/);
+});
+
 test('Linux shell syntax parses without running commands', { skip: !bash }, () => {
   const result = run(bash, ['-n', linuxScript]);
   assert.equal(result.status, 0, result.output);

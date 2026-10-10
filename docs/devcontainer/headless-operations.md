@@ -23,6 +23,8 @@ the actual host and checks prerequisites before deleting **all WSL distributions
 and Docker Desktop data**, without a typed reset confirmation. It also changes Defender exclusions,
 backs up/replaces global `.wslconfig`, and installs Ubuntu-24.04. This is a
 fresh-machine operation, not a normal update command.
+When setup finishes, the script enters Ubuntu interactively for Linux user
+setup and the following clone steps. Exit that shell to return to PowerShell.
 
 For headless execution, supply the path instead of using the drive picker:
 

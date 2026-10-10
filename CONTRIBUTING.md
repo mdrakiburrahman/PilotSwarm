@@ -24,7 +24,6 @@
 
    cd PilotSwarm/
    git checkout dev/mdrrahman/explore
-   code .
    ```
 
 1. Run the bootstrapper script, that installs all tools idempotently:

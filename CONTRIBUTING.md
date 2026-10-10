@@ -23,6 +23,7 @@
    git clone https://github.com/mdrakiburrahman/PilotSwarm.git
 
    cd PilotSwarm/
+   git checkout dev/mdrrahman/explore
    code .
    ```
 

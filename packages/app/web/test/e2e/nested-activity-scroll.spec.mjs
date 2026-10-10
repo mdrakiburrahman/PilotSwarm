@@ -103,11 +103,10 @@ async function touchToBottom(page, target) {
     // overscroll that consumes a gesture just to clamp it back.
     await target.evaluate(node => { node.scrollTop = node.scrollHeight - node.clientHeight - 50; });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const { x, y } = await pointInside(target);
-    const cdp = await page.context().newCDPSession(page);
-    try {
-        await cdp.send("Input.synthesizeScrollGesture", { x, y, yDistance: -150, speed: 1000, gestureSourceType: "touch", preventFling: true });
-    } finally { await cdp.detach(); }
+    // Use the same native touch stream as the edge-handoff assertion below.
+    // CDP synthesizeScrollGesture emits only start/end (no movement) on
+    // this mobile fixture, leaving the viewport exactly 50px from its edge.
+    await swipe(page, target, true);
     await expect.poll(() => target.evaluate(node => node.scrollHeight - node.clientHeight - node.scrollTop)).toBeLessThan(2);
 }
 

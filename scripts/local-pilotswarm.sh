@@ -19,7 +19,8 @@
 #                    shared/  a folder every session gets
 #                    home/    each person's own folder (users/<person>)
 #
-# Needs: .env with DATABASE_URL (local PostgreSQL) and GITHUB_TOKEN (a GitHub
+# Needs: .env (or PS_LOCAL_ENV_FILE) with DATABASE_URL (local PostgreSQL)
+# and GITHUB_TOKEN (a GitHub
 # Copilot token), and git 2.46 or later.
 #
 # Optional settings:
@@ -46,6 +47,7 @@ REPO_PORT="${PS_LOCAL_REPO_PORT:-8080}"
 PORT="${PORT:-3001}"
 REPO_PID="$LOCAL_DIR/repo-service.pid"
 WORKSPACES="${PS_LOCAL_WORKSPACES:-on}"
+LOCAL_ENV_FILE="${PS_LOCAL_ENV_FILE:-.env}"
 case "$WORKSPACES" in
     on|no-defaults|no-portal|off) ;;
     *) echo "[local] PS_LOCAL_WORKSPACES must be on, no-defaults, no-portal or off" >&2; exit 1 ;;
@@ -57,8 +59,9 @@ REPOS='{"duroxide": {"upstream": "https://github.com/microsoft/duroxide.git", "s
 cd "$REPO_ROOT"
 
 check_env() {
-    if ! grep -q '^DATABASE_URL=.' .env 2>/dev/null || ! grep -q '^GITHUB_TOKEN=.' .env 2>/dev/null; then
-        echo "[local] .env needs DATABASE_URL (local PostgreSQL) and GITHUB_TOKEN (a GitHub Copilot token)." >&2
+    if ! grep -q '^DATABASE_URL=.' "$LOCAL_ENV_FILE" 2>/dev/null \
+        || { [[ -z "${GITHUB_TOKEN:-}" ]] && ! grep -q '^GITHUB_TOKEN=.' "$LOCAL_ENV_FILE" 2>/dev/null; }; then
+        echo "[local] $LOCAL_ENV_FILE needs DATABASE_URL and GITHUB_TOKEN (or an exported Copilot token)." >&2
         exit 1
     fi
 }
@@ -66,6 +69,9 @@ check_env() {
 # The local PostgreSQL container, when there is one: started if it is stopped.
 # It has no restart policy, so it is stopped after a reboot.
 start_database() {
+    if [[ "${PS_LOCAL_MANAGED_DATABASE:-0}" == 1 ]]; then
+        return
+    fi
     if ! docker info >/dev/null 2>&1; then
         echo "[local] Docker is not running. If DATABASE_URL points at the pilotswarm-pg container, start Docker Desktop first." >&2
         return
@@ -190,7 +196,8 @@ start_portal() {
     fi
     export GIT_AUTHOR_NAME="PilotSwarm agent" GIT_AUTHOR_EMAIL=agent@pilotswarm.invalid
     export GIT_COMMITTER_NAME="PilotSwarm agent" GIT_COMMITTER_EMAIL=agent@pilotswarm.invalid
-    PORT="$PORT" ./scripts/portal-start.sh local --port "$PORT"
+    PORTAL_ENV_FILE="$LOCAL_ENV_FILE" PORTAL_LOG_DIR="$LOGS" \
+        PORT="$PORT" bash ./scripts/portal-start.sh local --port "$PORT"
 }
 
 stop_all() {
@@ -232,7 +239,11 @@ case "${1:-}" in
         ;;
     down)
         stop_all
-        echo "[local] PostgreSQL keeps running (the tests use it too). To stop it: docker stop pilotswarm-pg"
+        if [[ "${PS_LOCAL_MANAGED_DATABASE:-0}" == 1 ]]; then
+            echo "[local] Compose-managed PostgreSQL keeps running. Use devcontainer:down to stop it."
+        else
+            echo "[local] PostgreSQL keeps running. To stop it: docker stop pilotswarm-pg"
+        fi
         ;;
     reset)
         stop_all
@@ -241,7 +252,7 @@ case "${1:-}" in
         echo "[local] Removed $WS. The database is kept."
         ;;
     logs)
-        tail -n 50 -f /tmp/portal-server.log "$LOGS/repo-service.log"
+        tail -n 50 -f "$LOGS/portal-server.log" "$LOGS/repo-service.log"
         ;;
     *)
         sed -n '2,9p' "$0"

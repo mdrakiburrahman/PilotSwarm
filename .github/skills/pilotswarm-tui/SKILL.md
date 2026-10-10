@@ -150,6 +150,13 @@ Do not bypass shared selectors/components with host-only UI logic unless the beh
 - On mobile/coarse-pointer session lists, axis-locked drags track the finger and stop immediately on release or cancellation; never schedule an inertial fling. Preserve taps, deliberate horizontal panning, and desktop reorder behavior. This rule is session-list-only: chat and canvas retain their existing scrolling.
 - The chat live-activity `Working` card is governed by the session's running state, not by whether an assistant message has already appeared in the transcript. Assistant output can land before a turn is fully complete; keep the card visible until the session stops running.
 - In the portal, the live `Working` card and queued outbox are bottom-sticky flex siblings that reduce the transcript viewport height. `useScrollSync` must observe real viewport size changes and reapply the existing bottom/top anchor even when transcript lines did not change; otherwise the last transcript rows sit under the bottom fade and appear to slide behind `Working`. Preserve paused user scroll and touch momentum when re-anchoring.
+- Browser transcript layout skipping must use measured intrinsic block heights,
+  never a CSS-only height estimate. Observe block reflow as well as viewport
+  resizing so bottom-follow remains reachable and paused readers retain their
+  anchor; hovered/focused disclosures keep normal independent-scroll layout.
+  Backward paging must anchor unique content, not repeated timestamps or
+  index-reused DOM rows. A fresh touchstart ends the old touch momentum guard;
+  queued wheel input uses its event timestamp, not delayed handler execution.
 - Completing, cancelling, or deleting a parent session cascades the matching shutdown command to every live direct child and waits for those child sessions to become terminal before closing the parent. A child task/result marked `completed` is not the same as a terminal child session: non-system children remain alive for follow-up, so graceful shutdown must use authoritative CMS lifecycle status and still close an `idle` child.
 - The Admin Console (`Shift+A` in the native TUI; toolbar `Admin` button in the portal) is a workspace-replacing surface for per-user settings. It must never display the raw GitHub Copilot key text — `selectAdminConsole` and `selectAdminGhcpKeyEditorModal` only carry the `githubCopilotKeySet` boolean and a masked editor value. The TUI and portal share the `state.admin` slice in `ui-core` and route every mutation through the controller (`beginAdminEditGhcpKey`, `setAdminGhcpKeyDraft`, `cancelAdminEditGhcpKey`, `saveAdminGhcpKey`, `clearAdminGhcpKey`, `refreshAdminProfile`); keep both hosts in sync if you add a new admin setting. Do not globally block New/New+Model when the per-user GitHub key is unset: GitHub models should fail only at create time when neither env `GITHUB_TOKEN` nor the per-user key is available, and non-GitHub providers must remain usable.
 - In Admin Console → My Providers, portal `Update Key` and native TUI `Shift+U` replace the selected personal provider credential in place. Keep the password draft masked and clear it before awaiting the update. Never implement this as delete/recreate: provider identity, defaults, routing references, and usage history must remain intact.
@@ -221,6 +228,12 @@ late deleted folders that a newer run had just found.
 5. Update `.github/copilot-instructions.md` if contributor maintenance expectations changed.
 
 ## Verification
+
+The source devcontainer exposes the same local platform through
+`npx nx run local:up|restart|smoke|down`. It uses `PS_LOCAL_ENV_FILE` and
+Compose-managed portal PostgreSQL separate from integration-test PostgreSQL.
+Keep the public client's TUI/portal behavior identical; the container is a
+development host, not a new runtime transport or cloud provider.
 
 Prefer fast local checks for TUI work:
 

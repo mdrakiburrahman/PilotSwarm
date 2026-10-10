@@ -7,6 +7,13 @@ tarball: the test harness and deployment templates are development sources.
 
 ## 1. Prerequisites
 
+For the maintained Windows → WSL → source-built devcontainer workflow, start
+with [CONTRIBUTING.md](../../../../CONTRIBUTING.md) and
+[Headless operations](../../../devcontainer/headless-operations.md).
+It supplies Node, Docker tooling, browser dependencies and separate disposable
+PostgreSQL services. The commands below remain supported for contributors
+using their own Linux development environment.
+
 - Node.js **24 or later**, npm, Git and Bash. Run Windows commands in WSL.
 - Docker for a disposable stock PostgreSQL database, or your own test-only
   PostgreSQL server. The GitHub runner uses PostgreSQL 16.

@@ -106,8 +106,48 @@ test("the SDK unit phase loads the environment its suites need", () => {
     // runner is missing a flag".
     const start = live.indexOf("run_sdk_unit_tests() {");
     const body = live.slice(start, live.indexOf("\n}", start));
-    assert.match(body, /--env-file-if-exists=\.env/, "run_sdk_unit_tests must load optional baseline credentials without replacing the routed environment");
+    assert.match(live, /^ENV_FILE="\$\{PS_TEST_ENV_FILE:-\.env\}"$/m,
+        "the baseline config must default to .env while allowing a dedicated PS_TEST_ENV_FILE");
+    assert.match(body, /--env-file-if-exists="\$ENV_FILE"/,
+        "run_sdk_unit_tests must load optional selected baseline credentials without replacing the routed environment");
     assert.match(body, /packages\/sdk\/test\/unit/, "run_sdk_unit_tests must target test/unit");
+});
+
+test("the SDK unit phase selects default or dedicated config without replacing routed environment", () => {
+    const start = live.indexOf("run_sdk_unit_tests() {");
+    const definition = live.slice(start, live.indexOf("\n}", start) + 2);
+    const selection = live.match(/^ENV_FILE=.*$/m)?.[0];
+    assert.ok(selection, "the runner must select its baseline environment file");
+    const program = `
+set -euo pipefail
+REPO_ROOT="$PS_GATE_REPO_ROOT"
+SKIP_SDK_UNIT_TESTS=0
+PILOTSWARM_TEST_RESULTS_DIR=
+node() {
+    printf 'SDK_ENV_ARGUMENT=%s\\n' "$1"
+    printf 'SDK_DATABASE_ROUTE=%s\\n' "$DATABASE_URL"
+}
+npm() { :; }
+record_run_phase() { :; }
+${selection}
+${definition}
+run_sdk_unit_tests
+`;
+    const inherited = {
+        ...process.env,
+        PS_GATE_REPO_ROOT: REPO_ROOT.replace(/\\/g, "/"),
+        DATABASE_URL: "routed-database-placeholder",
+    };
+    delete inherited.PS_TEST_ENV_FILE;
+    for (const selected of [undefined, "", ".devcontainer/.state/baseline with spaces.env"]) {
+        const env = { ...inherited };
+        if (selected !== undefined) env.PS_TEST_ENV_FILE = selected;
+        const output = execFileSync(bashExecutable(), ["-c", program], { env, encoding: "utf8" });
+        assert.ok(output.includes(`SDK_ENV_ARGUMENT=--env-file-if-exists=${selected || ".env"}\n`),
+            "the optional selected file must be passed to Node as one argument");
+        assert.match(output, /SDK_DATABASE_ROUTE=routed-database-placeholder/,
+            "selecting baseline credentials must preserve the provider-routed environment");
+    }
 });
 
 test("the provider-budget suites are reachable from the gate", () => {

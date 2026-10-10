@@ -1,0 +1,35 @@
+{
+  "name": "sdk",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build --workspace=packages/sdk",
+        "cwd": "."
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint --workspace=packages/sdk",
+        "cwd": "."
+      }
+    },
+    "test-unit": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build", { "projects": ["app"], "target": "build" }],
+      "options": {
+        "command": "node dev/run-checks.mjs sdk",
+        "cwd": "."
+      }
+    },
+    "verify": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["typecheck", "test-unit"],
+      "options": {
+        "command": "node -e \"console.log('SDK checks passed')\""
+      }
+    }
+  }
+}

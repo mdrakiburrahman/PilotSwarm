@@ -1,0 +1,4 @@
+* text=auto eol=lf
+dev/*.sh text eol=lf
+.devcontainer/scripts/*.sh text eol=lf
+.devcontainer/Dockerfile text eol=lf

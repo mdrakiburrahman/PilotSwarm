@@ -1,0 +1,31 @@
+{
+  "name": "PilotSwarm source (Ubuntu 24.04)",
+  "dockerComposeFile": ["compose.yml", ".state/mounts.json"],
+  "service": "workspace",
+  "runServices": ["workspace", "test-db", "portal-db"],
+  "workspaceFolder": "/workspaces/PilotSwarm",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose",
+  "initializeCommand": ["node", ".devcontainer/scripts/lifecycle.mjs", "initialize"],
+  "postCreateCommand": ["node", ".devcontainer/scripts/container.mjs", "install"],
+  "waitFor": "postCreateCommand",
+  "forwardPorts": [3001],
+  "portsAttributes": {
+    "3001": {"label": "PilotSwarm local portal", "onAutoForward": "notify"}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint"],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.watcherExclude": {
+          "**/node_modules/**": true,
+          "**/.nx/**": true,
+          "**/.devcontainer/.state/**": true
+        }
+      }
+    }
+  }
+}

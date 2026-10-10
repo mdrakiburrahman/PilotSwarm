@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-const source=fs.readFileSync(new URL('../../react/src/web-app.js',import.meta.url),'utf8');
+// Extract the same function from LF archives and Windows CRLF worktrees.
+const source=fs.readFileSync(new URL('../../react/src/web-app.js',import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const start=source.indexOf('        const pollProfileSettings = async () => {');
 const end=source.indexOf('\n\n        pollProfileSettings().catch',start);
 function setup() {

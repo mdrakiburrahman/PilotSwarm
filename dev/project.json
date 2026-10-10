@@ -1,0 +1,26 @@
+{
+  "name": "local",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "up": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node .devcontainer/scripts/container.mjs local up", "cwd": "." }
+    },
+    "restart": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node .devcontainer/scripts/container.mjs local restart", "cwd": "." }
+    },
+    "smoke": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node .devcontainer/scripts/container.mjs local smoke", "cwd": "." }
+    },
+    "down": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node .devcontainer/scripts/container.mjs local down", "cwd": "." }
+    },
+    "logs": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node .devcontainer/scripts/container.mjs local logs", "cwd": "." }
+    }
+  }
+}

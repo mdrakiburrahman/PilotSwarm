@@ -1,0 +1,36 @@
+{
+  "name": "repo",
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "test-scripts": {
+      "executor": "nx:run-commands",
+      "dependsOn": [{ "projects": ["app"], "target": "build" }],
+      "options": {
+        "command": "node dev/run-checks.mjs repo",
+        "cwd": "."
+      }
+    },
+    "check-privacy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run check:privacy",
+        "cwd": "."
+      }
+    },
+    "verify": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["test-scripts", "check-privacy"],
+      "options": {
+        "command": "node -e \"console.log('Repository checks passed')\""
+      }
+    },
+    "test-local": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node .devcontainer/scripts/container.mjs test-local",
+        "cwd": ".",
+        "forwardAllArgs": true
+      }
+    }
+  }
+}

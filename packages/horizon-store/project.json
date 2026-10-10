@@ -1,0 +1,30 @@
+{
+  "name": "horizon-store",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "implicitDependencies": ["sdk"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "npm run build --workspace=packages/horizon-store",
+        "cwd": "."
+      }
+    },
+    "test-unit": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "npm test --workspace=packages/horizon-store",
+        "cwd": "."
+      }
+    },
+    "verify": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["test-unit"],
+      "options": {
+        "command": "node -e \"console.log('Horizon store local checks passed; no live HorizonDB coverage')\""
+      }
+    }
+  }
+}

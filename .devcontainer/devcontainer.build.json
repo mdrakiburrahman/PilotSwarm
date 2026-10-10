@@ -1,0 +1,10 @@
+{
+  "name": "PilotSwarm source image builder",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "args": {
+      "PLAYWRIGHT_VERSION": "${localEnv:PILOTSWARM_BUILD_PLAYWRIGHT_VERSION}"
+    }
+  }
+}

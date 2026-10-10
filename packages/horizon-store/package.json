@@ -16,6 +16,9 @@
         "migrations/**/*",
         "README.md"
     ],
+    "nx": {
+        "includedScripts": []
+    },
     "scripts": {
         "build": "tsc",
         "dev": "tsc --watch",

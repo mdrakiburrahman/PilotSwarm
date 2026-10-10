@@ -1,112 +1,109 @@
-# Contributing to PilotSwarm
+# Contributing
 
-PilotSwarm is **experimental** and under active development. Contributions are
-welcome, but please understand that the API surface, internal layout, and
-release cadence are still in flux. Treat this as a research-grade project
-rather than a stable platform.
+On Windows, use PowerShell to enter WSL. Build and test inside the
+Ubuntu 24.04 devcontainer. No Azure account or Docker Desktop is required.
 
-## Before You Start
+## First-time setup
 
-- Read the [README](README.md) and [Architecture](./docs/architecture/system.md) to
-  understand the layering: client → orchestration → worker → managed session.
-- For changes inside the durable session orchestration, read
-  [Orchestration Design](./docs/architecture/orchestration/design.md). The orchestration is a
-  duroxide replay generator — changing the order of yields is a versioning
-  event, not a free refactor.
-- Open an issue first for non-trivial work so we can discuss design before
-  you spend time on a PR.
+1. From PowerShell 7 **as Administrator**, run the Windows bootstrap:
 
-## Development Setup
+   ```powershell
+   Set-Location C:\git\PilotSwarm
+   .\dev\bootstrap-dev-env.ps1 -VhdPath C:\VHD\PilotSwarm -FullReset
+   ```
 
-Follow [Local tests and CI setup](docs/developer/contributing/local-ci-and-tests.md)
-for Node.js 24+, credential-free PR checks, a disposable PostgreSQL container,
-optional full/additive HorizonDB tests, and installing the GitHub workflows in
-your own repository. It documents the actual full test wrapper and eight-file
-parallelism. Never use an application database for test cleanup.
+   **This resets the developer machine:** it removes existing WSL
+   distributions and Docker Desktop, configures WSL/Defender, and installs
+   Ubuntu 24.04. Read the inventory and confirmation before continuing.
+   Do not run it to update an existing checkout.
+   Choose an empty VHD directory on a drive with sufficient free space.
 
-## Project Layout
+2. In Ubuntu 24.04, clone into the Linux filesystem and bootstrap the host:
 
-```
-packages/
-  sdk/           — runtime, orchestration, worker, session manager, CMS catalog
-    api/         —   zero-dep isomorphic Web API client (pilotswarm-sdk/api)
-  app/           — the "pilotswarm" application package
-    tui/         —   terminal UI host (+ pilotswarm/host node layer)
-    web/         —   portal server (Web API host) + browser portal UI
-    mcp/         —   MCP server (Web API mode)
-    ui/          —   shared UI layers (pilotswarm/ui-core, pilotswarm/ui-react)
-  horizon-store/ — optional enhanced facts/graph provider (dynamically imported)
-docs/            — see docs/README.md (quickstart, user guide, architecture, API, developer)
-deploy/          — Dockerfiles, Kubernetes manifests, runtime supervisor
-```
+   ```bash
+   sudo install -d -m 0775 -o "$USER" -g "$USER" /workspaces
+   cd /workspaces
+   git clone <your-fork-url> PilotSwarm
+   cd PilotSwarm
+   git switch <your-branch>
+   bash dev/bootstrap-dev-env.sh
+   ```
 
-Most contributions live under `packages/sdk/src/`.
+   Reopen the WSL terminal if the bootstrap added you to the Docker group.
+   Do not put the development checkout under `/mnt/c`.
 
-## Pull Request Conventions
+3. Install host tooling and start the source-built workspace:
 
-- **One change per PR.** Refactors, bug fixes, and features should be separate
-  PRs even if related. It makes review possible.
-- **Tests required for behavior changes.** New activities, orchestration
-  branches, or tool implementations need at least one test under
-  `packages/sdk/test/local/`. Pure refactors don't need new tests but must
-  keep the existing suite green.
-- **Keep `tsc --noEmit` clean.** Add types rather than `any` where practical.
-- **Conventional-ish commit messages.** No strict tooling, but follow the
-  style in `git log`: lowercase prefix (`sdk:`, `orch:`, `ui:`, `docs:`),
-  concise subject, blank line, then a body that explains *why*.
-- **Don't change the orchestration without a version bump.** If your change
-  alters the order, count, or arguments of `yield` calls inside any
-  `durableSessionOrchestration_*` handler, you must:
-  1. Freeze the current latest as a `_X_Y_Z.ts` sibling
-  2. Edit `packages/sdk/src/orchestration-version.ts` to bump the latest
-  3. Update `packages/sdk/src/orchestration-registry.ts`
-  4. Trim the registry to versions at or above the compatibility floor
+   ```bash
+   npm ci
+   npx nx run devcontainer:up
+   WORKSPACE_HEX=$(printf '%s' "$(wslpath -w .)" | od -An -tx1 | tr -d '[:space:]')
+   code --folder-uri "vscode-remote://dev-container+${WORKSPACE_HEX}/workspaces/PilotSwarm"
+   ```
 
-  See [docs/architecture/orchestration/design.md §12](./docs/architecture/orchestration/design.md) for the
-  full replay-safety rules.
+   Terminal-only entry:
 
-## Continuous Integration
+   ```bash
+   npx nx run devcontainer:exec -- bash
+   ```
 
-The full test suite is explicitly maintainer-triggered. Forks won't auto-run it.
-Once review converges, a repository writer/maintainer can post a new standalone
-`/test all` comment on your PR. The bot replies with the pinned SHA and run link;
-environment approval is still required. Alternatively, the maintainer can
-dispatch **Tests** from `main` with your `pr_number`, `providers=all`, and a blank
-`suite`, then approve that exact head SHA. The result appears on the tested
-commit; new commits need a new run. See [maintainer PR testing](.github/CI.md#maintainer-triggered-tests-before-merging-a-pr).
+## Build and test
 
-You can run the full local suite at any time:
+Inside the container:
 
 ```bash
-./scripts/run-tests.sh
+npx nx run-many -t build --all
+npx nx run-many -t verify --all
+npx nx run app:test-e2e
 ```
 
-It takes about 6 minutes against a healthy local Postgres + Copilot token.
+For live Copilot tests, authenticate first, then run the complete
+stock PostgreSQL suite:
 
-## Coding Style
+```bash
+gh auth login --hostname github.com --web
+npx nx run repo:test-local
+```
 
-- TypeScript for new SDK code; JavaScript is fine for ui-core/ui-react/cli.
-- 4-space indent, double-quoted strings.
-- Avoid premature abstractions. Three similar lines beat a half-thought-out
-  helper. The `simplify` skill in this repo lays out the philosophy.
-- Avoid comments that describe *what* the code does. Comments are for *why* —
-  hidden constraints, subtle invariants, surprising behavior.
+GitHub login alone does not grant Copilot entitlement or model access.
+HorizonDB coverage requires a real external service and is not part of this
+local Docker environment. Tests keep their existing parallelism and assertions.
 
-## Filing Issues
+## Run the platform
 
-Helpful issue reports include:
+Inside the container, with a Copilot-enabled GitHub login:
 
-- the version of `pilotswarm-sdk` (or commit SHA if running from source)
-- minimal reproduction steps
-- the orchestration version (`packages/sdk/src/orchestration-version.ts`)
-- relevant log output (worker traces, session events) — redact secrets first
+```bash
+npx nx run local:up
+npx nx run local:smoke
+```
 
-## License
+Open `http://localhost:3001` on Windows. Sign in as one of the local dev
+personas. The portal and test suite use **different PostgreSQL databases**.
+After a code change, run `npx nx run local:restart`.
 
-By contributing, you agree that your contributions will be licensed under the
-[MIT License](LICENSE).
+## Stop
 
-Retain the original-contributor and Microsoft copyright notices when packaging
-or redistributing the project. Each workspace package carries the complete
-root license text. See the [high-severity dependency remediation plan](docs/developer/contributing/high-dependency-remediation.md)
-for the current advisory inventory and reviewable upgrade batches.
+Inside the container:
+
+```bash
+npx nx run local:down
+```
+
+Then, from the WSL checkout:
+
+```bash
+npx nx run devcontainer:down
+```
+
+Add `-- --volumes` only to delete this workspace's local database and dependency
+volumes. Normal cleanup never prunes unrelated Docker resources.
+
+For Windows browser-assisted GitHub login, unattended operation and the
+complete target inventory, see [Headless operations](docs/devcontainer/headless-operations.md).
+For contribution rules and the repository map, see
+[Working on PilotSwarm](docs/developer/contributing/working-on-pilotswarm.md).
+Durable orchestration changes require
+[replay-safe versioning](docs/architecture/orchestration/design.md).
+Keep the [privacy check](.github/REPOSITORY-PRIVACY.md) green before committing,
+and retain the complete [MIT license](LICENSE) when distributing packages.

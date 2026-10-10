@@ -332,6 +332,8 @@ you must also keep [`.github/skills/pilotswarm-tui/SKILL.md`](./skills/pilotswar
 
 For the native TUI files inspector, keep the standard outer inspector shell as the top-level pane chrome. Do not reintroduce a second files-specific top-level shell around the tab body.
 
+Browser transcript containment must be seeded with measured intrinsic block heights and observe subsequent reflow; CSS-only estimates must not break bottom reachability or paused reading anchors. Keep backward-page anchors content-unique, and classify queued wheel input by its event timestamp while releasing touch momentum guards on the next touchstart. Retain browser coverage for bottom-follow, paging, and nested scroll handoff when changing this geometry.
+
 Pane headers in the shared UI should stay compact. Keep title text data plain; the portal may use a slim card header, while the TUI should render pane titles without a highlighted header background. When a pane narrows, prefer dropping low-priority title metadata such as session ids or recent-window labels before squeezing content.
 
 Session rows should show interval cron as `[cron <duration>]` and wall-clock cron as `[cron <next client-local time>]`; do not expose the internal `cron_at` tool name in row badges. The sequence and activity panes should render wall-clock `cron_at` lifecycle events with the same visible `cron` label and magenta styling as interval cron, including a visible wake-up indicator when `session.cron_at_fired` arrives.
@@ -500,6 +502,15 @@ Duroxide is the foundational runtime — papering over its bugs at higher layers
 For live runtime forensics — tracing orchestration/activity logs, session-affined `runTurn` placement, hydration/dehydration evidence, or crash-vs-affinity investigations — use [`.github/skills/investigate-duroxide-runtime/SKILL.md`](./skills/investigate-duroxide-runtime/SKILL.md).
 
 ## Local instance
+
+The maintained Windows development workflow starts in `CONTRIBUTING.md`:
+PowerShell bootstrap → Ubuntu 24.04 checkout → source devcontainer → Nx.
+Keep `.devcontainer/` and `docs/devcontainer/headless-operations.md` aligned
+when startup or test prerequisites change. The container supplies separate
+test and portal databases and dedicated ignored config; never replace a
+maintainer's `.env` or private model catalog. `PS_TEST_ENV_FILE` selects the
+test config; `PS_LOCAL_ENV_FILE` selects the local platform config.
+Full local verification does not substitute for real HorizonDB release coverage.
 
 `scripts/local-pilotswarm.sh` runs the whole platform on one machine: the
 PostgreSQL container, the web portal with two workers inside the portal

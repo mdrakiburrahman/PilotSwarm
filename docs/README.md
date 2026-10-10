@@ -56,6 +56,7 @@ Building **on** PilotSwarm, deploying it, and contributing **to** it.
 - [Agent contracts](./developer/reference/agent-contracts.md) — prompt/tool/runtime rules that stay true across code, docs, tests
 
 **Contributing to PilotSwarm**
+- [Devcontainer headless operations](./devcontainer/headless-operations.md) — Windows → WSL → container, Nx commands and local Docker checks
 - [Working on PilotSwarm](./developer/contributing/working-on-pilotswarm.md) — repo map, workflows, checklists
 - [TUI implementor guide](./developer/contributing/tui-implementor-guide.md)
 - [High-severity dependency plan](./developer/contributing/high-dependency-remediation.md) — advisory inventory and upgrade batches

@@ -23,6 +23,8 @@ MODE="local"
 USE_REMOTE_DB=false
 PLUGIN_DIR=""
 NO_AUTH=false
+LOG_DIR="${PORTAL_LOG_DIR:-/tmp}"
+mkdir -p "$LOG_DIR"
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -49,9 +51,9 @@ done
 # For the portal, `local` now means local end to end. Reach for the shared
 # database explicitly with --remote-db.
 if [[ "$MODE" == "local" && "$USE_REMOTE_DB" == "false" ]]; then
-    ENV_FILE=".env"
+    ENV_FILE="${PORTAL_ENV_FILE:-.env}"
 else
-    ENV_FILE=".env.remote"
+    ENV_FILE="${PORTAL_ENV_FILE:-.env.remote}"
 fi
 
 # Determine TUI mode
@@ -87,11 +89,11 @@ fi
 
 echo "[portal] Starting server (port $PORT, mode $TUI_MODE)..."
 echo "[portal] Building browser app..."
-npm run build:web --workspace=pilotswarm >/tmp/portal-build.log 2>&1
+npm run build:web --workspace=pilotswarm >"$LOG_DIR/portal-build.log" 2>&1
 if [[ -n "$PLUGIN_DIR" ]]; then
   export PLUGIN_DIRS="$(cd "$PLUGIN_DIR" && pwd)"
 fi
-PORTAL_ENV_FILE="$ENV_FILE" PORTAL_TUI_MODE="$TUI_MODE" node --env-file="$ENV_FILE" packages/app/web/server.js > /tmp/portal-server.log 2>&1 &
+PORTAL_ENV_FILE="$ENV_FILE" PORTAL_TUI_MODE="$TUI_MODE" node --env-file="$ENV_FILE" packages/app/web/server.js >"$LOG_DIR/portal-server.log" 2>&1 &
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PIDFILE"
 
@@ -109,7 +111,7 @@ for i in $(seq 1 30); do
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo " FAILED"
     echo "[portal] Server crashed. Logs:"
-    tail -20 /tmp/portal-server.log
+    tail -20 "$LOG_DIR/portal-server.log"
     rm -f "$PIDFILE"
     exit 1
   fi
@@ -143,5 +145,5 @@ echo ""
 echo "  Browser-native workspace is served from packages/app/web/dist."
 echo ""
 echo "  Stop: ./scripts/portal-stop.sh"
-echo "  Logs: tail -f /tmp/portal-server.log"
+echo "  Logs: tail -f $LOG_DIR/portal-server.log"
 echo "══════════════════════════════════════════════════════"

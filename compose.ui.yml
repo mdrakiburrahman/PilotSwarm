@@ -1,0 +1,62 @@
+# Full PilotSwarm UI stack: PostgreSQL + the web portal with two workers inside
+# it. Dev sign-in (Ada, Alice, Bob, Carol, Dave) with ownership enforced.
+# Run it with `npx nx run local:ui-up`; see CONTRIBUTING.md.
+#
+# The image is built from deploy/Dockerfile.portal, which copies prebuilt dist
+# folders, so build first (the nx target does). GITHUB_TOKEN comes from your
+# shell. Nothing here is bind-mounted, so it also works from the devcontainer.
+name: pilotswarm-ui
+
+services:
+  db:
+    image: postgres:17.6-bookworm
+    command: ["postgres", "-c", "max_connections=500"]
+    shm_size: "256mb"
+    environment:
+      POSTGRES_USER: pilotswarm
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: pilotswarm
+    volumes:
+      - ui-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pilotswarm -d pilotswarm"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  portal:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.portal
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PS_UI_BIND:-127.0.0.1}:${PS_UI_PORT:-3002}:3001"
+    configs:
+      - source: model-providers
+        target: /app/deploy/config/model_providers.local-docker.json
+    environment:
+      DATABASE_URL: postgresql://pilotswarm:local-development-only@db:5432/pilotswarm
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?export GITHUB_TOKEN (for example GITHUB_TOKEN=$(gh auth token)) before starting the UI stack}
+      PS_MODEL_PROVIDERS_PATH: /app/deploy/config/model_providers.local-docker.json
+      PLUGIN_DIRS: /app/packages/app/tui/plugins
+      PORT: "3001"
+      PORTAL_TUI_MODE: local
+      PORTAL_AUTH_PROVIDER: dev
+      PORTAL_AUTH_DEV_ALLOW: "true"
+      AUTHZ_ENFORCE_OWNERSHIP: "true"
+      WORKERS: "2"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.status<500?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+configs:
+  model-providers:
+    file: deploy/config/model_providers.local-docker.json
+
+volumes:
+  ui-db:

@@ -101,12 +101,12 @@ export function createSandboxRemotes(options) {
         if (!fs.existsSync(target)) {
             fs.mkdirSync(remotesDir, { recursive: true });
             await options.runGit(["init", "-q", "--bare", target]);
-            await options.runGit(["-C", target, "config", "http.receivepack", "true"]);
-            await options.runGit(["-C", target, "config", "receive.denyDeletes", "true"]);
-            await options.runGit(["-C", target, "config", "receive.denyNonFastForwards", "true"]);
-            await options.runGit(["-C", target, "fetch", "-q", mirror, "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*"]);
-            const head = await options.runGit(["-C", mirror, "symbolic-ref", "HEAD"]).catch(() => "");
-            if (head) await options.runGit(["-C", target, "symbolic-ref", "HEAD", head]);
+            await options.runGit(["--git-dir", target, "config", "http.receivepack", "true"]);
+            await options.runGit(["--git-dir", target, "config", "receive.denyDeletes", "true"]);
+            await options.runGit(["--git-dir", target, "config", "receive.denyNonFastForwards", "true"]);
+            await options.runGit(["--git-dir", target, "fetch", "-q", mirror, "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*"]);
+            const head = await options.runGit(["--git-dir", mirror, "symbolic-ref", "HEAD"]).catch(() => "");
+            if (head) await options.runGit(["--git-dir", target, "symbolic-ref", "HEAD", head]);
         }
         const hook = path.join(target, "hooks", "pre-receive");
         fs.mkdirSync(path.dirname(hook), { recursive: true });
@@ -119,10 +119,10 @@ export function createSandboxRemotes(options) {
     async function syncFromMirror(repo, mirror) {
         const target = sandboxPath(repo);
         if (!fs.existsSync(target)) return;
-        const branches = (await options.runGit(["-C", mirror, "for-each-ref", "--format=%(refname:short)", "refs/heads/"]))
+        const branches = (await options.runGit(["--git-dir", mirror, "for-each-ref", "--format=%(refname:short)", "refs/heads/"]))
             .split("\n").map((line) => line.trim()).filter((name) => SANDBOX_PROTECTED.includes(name) || name.startsWith("release/"));
         const refspecs = [...branches.map((name) => `+refs/heads/${name}:refs/heads/${name}`), "+refs/tags/*:refs/tags/*"];
-        await options.runGit(["-C", target, "fetch", "-q", mirror, ...refspecs]);
+        await options.runGit(["--git-dir", target, "fetch", "-q", mirror, ...refspecs]);
     }
 
     /**

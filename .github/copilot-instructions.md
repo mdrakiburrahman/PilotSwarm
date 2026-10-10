@@ -533,6 +533,7 @@ scripts/local-pilotswarm.sh logs      # follow the portal and repo service logs
 | Workspace tab | The side pane's Workspace tab reads and writes the same folders: the portal gets `PORTAL_WORKSPACE_ROOTS` for them. File limit: `PORTAL_WORKSPACE_MAX_FILE_MB` (default 20). |
 | Canvas apps (canvas-ws) | Canvas apps may run the git commands their agent declared: `PORTAL_CANVAS_COMMANDS_RUNNER=local`. The Azure GitOps deployment sets it too when `WORKSPACES_ENABLED=true`. The program runs as the portal's own user, so turn it on only where you trust the people who sign in. |
 | Workspace cases | `PS_LOCAL_WORKSPACES=on` (default), `no-defaults` (repo clones only: a session without a repo has no folders), `no-portal` (the workers have workspaces, the portal serves none, so no Workspace tab), `off` (no workspaces). For example `PS_LOCAL_WORKSPACES=off scripts/local-pilotswarm.sh restart`. |
+| Remote execution | `PS_LOCAL_REMOTE_EXEC=on` (default off) with `PS_RELAY_SUBSCRIPTION`, `PS_RELAY_RESOURCE_GROUP`, `PS_RELAY_NAMESPACE`: the portal and TUI list the relay's connections (green = listener connected) and start a Remote Operator chat that runs commands through `privy`. Needs signed-in `az` and `privy` on PATH. `compose.ui.yml` bakes both into the image and starts in this mode. |
 | Models | `.model_providers.json` when it exists, else the GitHub Copilot catalog in `deploy/config/model_providers.local-docker.json`. `GITHUB_TOKEN` comes from `.env`. |
 
 It needs `.env` with `DATABASE_URL` and `GITHUB_TOKEN`, and git 2.46 or later.

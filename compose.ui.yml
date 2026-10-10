@@ -28,6 +28,10 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.portal
+      args:
+        REMOTE_EXECUTION: "true"
+        PRIVY_URL: ${PS_PRIVY_URL:-https://rakirahman.blob.core.windows.net/public/bins/privy-linux-x86_64}
+        PRIVY_SHA256: ${PS_PRIVY_SHA256:-dd0932510dcfadbe170955f999b1665e5b74950e874a33e4ae31f85fa1ce38f2}
     depends_on:
       db:
         condition: service_healthy
@@ -36,11 +40,38 @@ services:
     configs:
       - source: model-providers
         target: /app/deploy/config/model_providers.local-docker.json
+    volumes:
+      # Persistent az sign-in for the container (az login --use-device-code).
+      # A Linux host's ~/.azure, when AZURE_CONFIG_DIR_HOST points at it, seeds
+      # an empty volume once; a Windows profile's token cache is encrypted and
+      # cannot be reused.
+      - azure-login:/tmp/azure
+      - ${AZURE_CONFIG_DIR_HOST:-/dev/null}:/azure-host:ro
+      # ARM token from the host's az (scripts/relay-token.sh --loop); needs no login in here.
+      - ${PS_RELAY_TOKEN_DIR:-/tmp/ps-relay}:/run/relay:ro
+    entrypoint:
+      - sh
+      - -c
+      - |
+        [ -d /azure-host ] && [ -z "$(ls -A /tmp/azure 2>/dev/null)" ] && cp -a /azure-host/. /tmp/azure/ 2>/dev/null
+        exec node packages/app/web/server.js
     environment:
       DATABASE_URL: postgresql://pilotswarm:local-development-only@db:5432/pilotswarm
       GITHUB_TOKEN: ${GITHUB_TOKEN:?export GITHUB_TOKEN (for example GITHUB_TOKEN=$(gh auth token)) before starting the UI stack}
       PS_MODEL_PROVIDERS_PATH: /app/deploy/config/model_providers.local-docker.json
-      PLUGIN_DIRS: /app/packages/app/tui/plugins
+      PLUGIN_DIRS: /app/packages/app/tui/plugins,/app/packages/sdk/examples/remote-relay/plugin
+      # Remote Execution: the UI opens on the relay's remote targets (green =
+      # a listener is connected); a click starts a chat that runs on that
+      # machine through privy. Set PS_RELAY_* in your shell; see
+      # docs/developer/deploy/remote-execution.md.
+      PS_REMOTE_EXECUTION_MODULE: /app/packages/sdk/examples/remote-relay/index.mjs
+      PS_REMOTE_EXECUTION_START: ${PS_REMOTE_EXECUTION_START:-true}
+      PILOTSWARM_EXTENSION_MODULES: /app/packages/sdk/examples/remote-relay/index.mjs
+      PS_RELAY_SUBSCRIPTION: ${PS_RELAY_SUBSCRIPTION:-ce859648-30e1-4135-9d0f-8358aebfe789}
+      PS_RELAY_RESOURCE_GROUP: ${PS_RELAY_RESOURCE_GROUP:-pilotswarm}
+      PS_RELAY_NAMESPACE: ${PS_RELAY_NAMESPACE:-pilotswarm}
+      AZURE_CONFIG_DIR: /tmp/azure
+      PS_RELAY_ARM_TOKEN_FILE: /run/relay/token
       PORT: "3001"
       PORTAL_TUI_MODE: local
       PORTAL_AUTH_PROVIDER: dev
@@ -59,4 +90,5 @@ configs:
     file: deploy/config/model_providers.local-docker.json
 
 volumes:
+  azure-login:
   ui-db:

@@ -35,6 +35,10 @@
 #                              no-defaults  repo clones only: a session started without a repo has no folders
 #                              no-portal    the workers have workspaces; the portal serves none of them
 #                              off          no workspaces at all
+#   PS_LOCAL_REMOTE_EXEC     Remote Execution over Azure Relay (default off). Set to "on" with
+#                            PS_RELAY_SUBSCRIPTION, PS_RELAY_RESOURCE_GROUP and PS_RELAY_NAMESPACE;
+#                            needs `az` (signed in) and `privy` on PATH. The portal then offers
+#                            the remote targets (green = listener connected).
 
 set -euo pipefail
 
@@ -194,6 +198,14 @@ start_portal() {
         # as you (docs/developer/building/workspace-providers.md, canvas-ws).
         export PORTAL_CANVAS_COMMANDS_RUNNER=local
     fi
+    unset PS_REMOTE_EXECUTION_MODULE PS_REMOTE_EXECUTION_START
+    if [[ "${PS_LOCAL_REMOTE_EXEC:-off}" == on ]]; then
+        REMOTE_MODULE="$REPO_ROOT/packages/sdk/examples/remote-relay/index.mjs"
+        export PLUGIN_DIRS="$PLUGIN_DIRS,$REPO_ROOT/packages/sdk/examples/remote-relay/plugin"
+        export PILOTSWARM_EXTENSION_MODULES="${PILOTSWARM_EXTENSION_MODULES:+$PILOTSWARM_EXTENSION_MODULES,}$REMOTE_MODULE"
+        export PS_REMOTE_EXECUTION_MODULE="$REMOTE_MODULE"
+        export PS_REMOTE_EXECUTION_START="${PS_REMOTE_EXECUTION_START:-true}"
+    fi
     export GIT_AUTHOR_NAME="PilotSwarm agent" GIT_AUTHOR_EMAIL=agent@pilotswarm.invalid
     export GIT_COMMITTER_NAME="PilotSwarm agent" GIT_COMMITTER_EMAIL=agent@pilotswarm.invalid
     PORTAL_ENV_FILE="$LOCAL_ENV_FILE" PORTAL_LOG_DIR="$LOGS" \
@@ -212,6 +224,7 @@ stop_all() {
 summary() {
     echo "[local] Portal:  http://localhost:$PORT (sign in as Ada, Alice, Bob, Carol or Dave)"
     echo "[local] Folders: $WS"
+    if [[ "${PS_LOCAL_REMOTE_EXEC:-off}" == on ]]; then echo "[local] Remote execution: on (PS_LOCAL_REMOTE_EXEC)"; fi
     if [[ "$WORKSPACES" != on ]]; then echo "[local] Workspaces: $WORKSPACES (PS_LOCAL_WORKSPACES)"; fi
     echo "[local] Logs:    scripts/local-pilotswarm.sh logs"
 }

@@ -246,6 +246,7 @@ export function PilotSwarmTuiApp({ controller, platform, onRequestExit }) {
         const isShiftN = input === "N" || (key.shift && key.name === "n");
         const isShiftM = !key.ctrl && !key.meta && !key.alt && (input === "M" || (key.shift && key.name === "m"));
         const isShiftD = input === "D" || (key.shift && key.name === "d");
+        const isShiftX = !key.ctrl && !key.meta && !key.alt && (input === "X" || (key.shift && key.name === "x"));
         const isShiftR = !key.ctrl && !key.meta && !key.alt && (input === "R" || (key.shift && key.name === "r"));
         const isShiftW = !key.ctrl && !key.meta && !key.alt && (input === "W" || (key.shift && key.name === "w"));
         const isShiftY = !key.ctrl && !key.meta && !key.alt && (input === "Y" || (key.shift && key.name === "y"));
@@ -708,6 +709,11 @@ export function PilotSwarmTuiApp({ controller, platform, onRequestExit }) {
 
         if (focus !== "prompt" && isShiftN) {
             controller.handleCommand(UI_COMMANDS.OPEN_MODEL_PICKER).catch(() => {});
+            return;
+        }
+
+        if (focus !== "prompt" && isShiftX && controller.isRemoteExecutionEnabled()) {
+            controller.handleCommand(UI_COMMANDS.OPEN_REMOTE_EXECUTION).catch(() => {});
             return;
         }
 

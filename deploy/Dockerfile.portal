@@ -89,6 +89,27 @@ RUN npm run build:web --workspace=packages/app
 # one-time compatibility seed.
 COPY deploy/config/model_providers.ghcp.json ./.model_providers.json
 
+# Optional Remote Execution tooling (local UI stack only; compose.ui.yml sets
+# REMOTE_EXECUTION=true). Installs the Azure CLI, which lists the relay's
+# hybrid connections, and the privy client, which runs commands on the remote
+# machine. privy is pinned: the build fails when the downloaded bytes differ,
+# so a changed upstream binary needs a deliberate PRIVY_SHA256 bump.
+ARG REMOTE_EXECUTION=false
+ARG PRIVY_URL=
+ARG PRIVY_SHA256=dd0932510dcfadbe170955f999b1665e5b74950e874a33e4ae31f85fa1ce38f2
+RUN if [ "$REMOTE_EXECUTION" = "true" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends curl python3-venv \
+      && rm -rf /var/lib/apt/lists/* \
+      && python3 -m venv /opt/azure-cli \
+      && /opt/azure-cli/bin/pip install --no-cache-dir azure-cli \
+      && ln -s /opt/azure-cli/bin/az /usr/local/bin/az \
+      && curl -fsSL "$PRIVY_URL" -o /usr/local/bin/privy \
+      && echo "$PRIVY_SHA256  /usr/local/bin/privy" | sha256sum -c - \
+      && chmod 0755 /usr/local/bin/privy; \
+    fi
+COPY packages/sdk/examples/remote-relay/ ./packages/sdk/examples/remote-relay/
+RUN mkdir -p /tmp/azure && chown node:node /tmp/azure
+
 EXPOSE 3001
 
 # Run as non-root

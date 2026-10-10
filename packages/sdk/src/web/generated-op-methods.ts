@@ -114,6 +114,7 @@ export const GENERATED_OP_NAMES: readonly string[] = [
     "listModels",
     "listPausedSessions",
     "listProviders",
+    "listRemoteTargets",
     "listSessionGroups",
     "listSessions",
     "listSessionShares",
@@ -1107,6 +1108,12 @@ export interface ManagementOps {
     listProviders(params?: Record<string, never>): Promise<any>;
 
     /**
+     * Remote execution targets of the deployment's remote-execution provider: [{ id, label, available, listenerCount }]. Empty when no provider is configured.
+     * @remarks `GET /remote/targets` — access: `authed`
+     */
+    listRemoteTargets(params?: Record<string, never>): Promise<any>;
+
+    /**
      * List session groups.
      * @remarks `GET /management/session-groups` — access: `group:list`
      */
@@ -1896,6 +1903,7 @@ export function createManagementOps(
         listModels: (params: Record<string, unknown> = {}) => callOp("listModels", params),
         listPausedSessions: (params: Record<string, unknown> = {}) => callOp("listPausedSessions", params),
         listProviders: (params: Record<string, unknown> = {}) => callOp("listProviders", params),
+        listRemoteTargets: (params: Record<string, unknown> = {}) => callOp("listRemoteTargets", params),
         listSessionGroups: (params: Record<string, unknown> = {}) => callOp("listSessionGroups", params),
         listSessions: (params: Record<string, unknown> = {}) => callOp("listSessions", params),
         listSessionShares: (params: Record<string, unknown> = {}) => callOp("listSessionShares", params),

@@ -303,6 +303,7 @@ export const OPERATIONS = [
     // ── System ──────────────────────────────────────────────────────────
     { name: "getLogConfig", access: "authed", method: "GET", path: "/system/log-config", summary: "Log tail availability." },
     { name: "getWorkerCount", access: "authed", method: "GET", path: "/system/workers", summary: "Live worker count." },
+    { name: "listRemoteTargets", access: "authed", method: "GET", path: "/remote/targets", summary: "Remote execution targets of the deployment's remote-execution provider: [{ id, label, available, listenerCount }]. Empty when no provider is configured." },
 ];
 
 const OPERATIONS_BY_NAME = new Map(OPERATIONS.map((op) => [op.name, op]));

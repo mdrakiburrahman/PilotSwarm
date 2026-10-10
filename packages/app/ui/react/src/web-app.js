@@ -61,6 +61,7 @@ import {
     selectUsageAgents,
     selectReasoningEffortPickerModal,
     selectContextTierPickerModal,
+    selectRemoteTargetPickerModal,
     selectRenameSessionModal,
     selectSessionAgentPickerModal,
     selectSessionGroupNameModal,
@@ -10148,7 +10149,14 @@ function Toolbar({ controller, mobile, moa = null, viewNavigation = null, canvas
 
     // Icon-first toolbar: the glyph is the affordance, the label rides a
     // tooltip (desktop hover via title; mobile long-press via IconButton).
+    const remoteExecutionEnabled = controller.isRemoteExecutionEnabled();
     const buttonDefs = [
+        ...(remoteExecutionEnabled ? [{
+            key: "remote",
+            icon: "⇄",
+            label: "Remote execution — chat on a connected remote machine",
+            onClick: () => controller.handleCommand(UI_COMMANDS.OPEN_REMOTE_EXECUTION).catch(() => {}),
+        }] : []),
         // ONE new-session button, and it opens the chooser. The plain "＋"
         // (default model, generic agent) and "＋⚙" (choose model, then agent)
         // were two buttons for one intent, and the pair cost a slot the phone
@@ -12947,6 +12955,7 @@ function ModalLayer({ controller }) {
         modelPicker: selectModelPickerModal(state),
         reasoningEffortPicker: selectReasoningEffortPickerModal(state),
         contextTierPicker: selectContextTierPickerModal(state),
+        remoteTargetPicker: selectRemoteTargetPickerModal(state),
         sessionAgentPicker: selectSessionAgentPickerModal(state),
         sessionGroupPicker: selectSessionGroupPickerModal(state),
         sessionGroupName: selectSessionGroupNameModal(state),
@@ -13022,6 +13031,7 @@ function ModalLayer({ controller }) {
             "modelPicker",
             "reasoningEffortPicker",
             "contextTierPicker",
+            "remoteTargetPicker",
             "sessionAgentPicker",
             "sessionGroupPicker",
             "artifactPicker",
@@ -13046,6 +13056,7 @@ function ModalLayer({ controller }) {
         modalState.modelPicker?.selectedRowIndex,
         modalState.reasoningEffortPicker?.selectedRowIndex,
         modalState.contextTierPicker?.selectedRowIndex,
+        modalState.remoteTargetPicker?.selectedRowIndex,
         modalState.sessionAgentPicker?.selectedRowIndex,
         modalState.sessionGroupPicker?.selectedRowIndex,
         modalState.artifactPicker?.selectedRowIndex,
@@ -13228,6 +13239,9 @@ function ModalLayer({ controller }) {
     }
     if (modal.type === "contextTierPicker" && modalState.contextTierPicker) {
         return renderListModal(modalState.contextTierPicker, pickerConfirmLabel);
+    }
+    if (modal.type === "remoteTargetPicker" && modalState.remoteTargetPicker) {
+        return renderListModal(modalState.remoteTargetPicker, "Start Chat");
     }
     if (modal.type === "sessionAgentPicker" && modalState.sessionAgentPicker) {
         // Every row is an agent now, so Enter always creates.

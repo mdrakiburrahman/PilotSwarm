@@ -5,35 +5,28 @@
     "up": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node .devcontainer/scripts/container.mjs local up",
+        "command": "bash scripts/local-pilotswarm.sh up",
         "cwd": "."
       }
     },
     "restart": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node .devcontainer/scripts/container.mjs local restart",
-        "cwd": "."
-      }
-    },
-    "smoke": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "node .devcontainer/scripts/container.mjs local smoke",
+        "command": "bash scripts/local-pilotswarm.sh restart",
         "cwd": "."
       }
     },
     "down": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node .devcontainer/scripts/container.mjs local down",
+        "command": "bash scripts/local-pilotswarm.sh down",
         "cwd": "."
       }
     },
     "logs": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node .devcontainer/scripts/container.mjs local logs",
+        "command": "bash scripts/local-pilotswarm.sh logs",
         "cwd": "."
       }
     },

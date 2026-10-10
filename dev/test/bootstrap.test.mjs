@@ -196,10 +196,10 @@ test('Windows bootstrap uses the reference install-and-launch operation', () => 
   assert.match(windows, /Installing Ubuntu to \$VhdPath/);
 });
 
-test('Linux bootstrap installs repository tooling and reference hex command', () => {
+test('Linux bootstrap installs repository Nx tooling and reference hex command', () => {
   assert.match(linux, /rsync git xxd/);
   assert.match(linux, /cd "\$repo_root"\r?\nnpm ci/);
-  assert.match(linux, /npx --no-install devcontainer --version/);
+  assert.match(linux, /npx --no-install nx --version/);
 });
 
 test('Linux shell syntax parses without running commands', { skip: !bash }, () => {

@@ -504,12 +504,12 @@ For live runtime forensics — tracing orchestration/activity logs, session-affi
 ## Local instance
 
 The maintained Windows development workflow starts in `CONTRIBUTING.md`:
-PowerShell bootstrap → Ubuntu 24.04 checkout → source devcontainer → Nx.
-Keep `.devcontainer/` and `docs/devcontainer/headless-operations.md` aligned
-when startup or test prerequisites change. The container supplies separate
-test and portal databases and dedicated ignored config; never replace a
-maintainer's `.env` or private model catalog. `PS_TEST_ENV_FILE` selects the
-test config; `PS_LOCAL_ENV_FILE` selects the local platform config.
+PowerShell bootstrap → Ubuntu 24.04 checkout → idempotent Linux bootstrap → Nx.
+The maintained UI dev loop is `local:ui-up|ui-logs|ui-down` using
+`compose.ui.yml`, with the portal on localhost:3002. Keep host prerequisites
+and CONTRIBUTING aligned; no devcontainer is required. Never replace a
+maintainer's `.env` or private model catalog. Test databases remain separate
+from the Compose UI database; `PS_TEST_ENV_FILE` selects test configuration.
 Full local verification does not substitute for real HorizonDB release coverage.
 
 `scripts/local-pilotswarm.sh` runs the whole platform on one machine: the

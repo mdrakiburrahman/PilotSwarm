@@ -10,7 +10,7 @@ usage() {
   printf '%s\n' 'Usage: bash dev/bootstrap-dev-env.sh [--dry-run | --preflight-only]' \
     'Run as your normal Ubuntu 24.04 user from a native Linux PilotSwarm checkout.' \
     'Uses sudo for package/service setup. Never resets Docker or authenticates gh.' \
-    'After setup: open a new login shell for Docker group access; launch the devcontainer.'
+    'After setup: open a new login shell for Docker group access; run npx nx run local:ui-up.'
 }
 mode=install
 for argument in "$@"; do
@@ -35,7 +35,7 @@ if [[ "$mode" == dry-run ]]; then
     'If WSL systemd is disabled, merge boot.systemd=true into /etc/wsl.conf, then stop for a WSL restart.' \
     'Add current user to docker group (root-equivalent access); never chmod 666, prune or reset Docker.' \
     'Enable systemd Docker; validate Node24/npm/Git>=2.46/Docker/Compose/Buildx/gh.' \
-    'Install repository dependencies with npm ci; use repository-pinned Nx and Dev Containers CLI.'
+    'Install repository dependencies with npm ci; use repository-pinned Nx tooling.'
   exit 0
 fi
 
@@ -186,9 +186,9 @@ node --version
 npm --version
 git --version
 gh --version
-npx --no-install devcontainer --version
+npx --no-install nx --version
 printf '%s\n' \
   'Host bootstrap complete. Existing Docker containers, volumes and daemon settings were preserved.' \
   'Docker group membership grants root-equivalent access. Open a new login shell, then verify docker info without sudo.' \
-  'Repository-pinned Nx/Dev Containers CLI installed. No global npm tools installed.' \
+  'Repository-pinned Nx tooling installed. No global npm tools installed.' \
   'gh login and Copilot entitlement checks are separate steps; no credentials were read or configured.'

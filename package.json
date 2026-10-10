@@ -75,7 +75,6 @@
     "papaparse": "^5.5.4"
   },
   "devDependencies": {
-    "@devcontainers/cli": "0.89.0",
     "@playwright/test": "^1.62.0-alpha-2026-07-20",
     "nx": "23.2.1"
   }

@@ -9,8 +9,8 @@ concurrency:
   group: pr-checks-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  devcontainer:
-    name: Source devcontainer and Nx checks (Linux)
+  development:
+    name: WSL tooling and browser checks (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -20,17 +20,12 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Start source workspace
-        run: npx --no-install nx run devcontainer:up --skip-nx-cache
-      - name: Check container prerequisites
-        run: npx --no-install nx run devcontainer:doctor --skip-nx-cache
-      - name: Run credential-free verification
-        run: npx --no-install nx run devcontainer:test --skip-nx-cache
+      - name: Check bootstrap and Nx contracts
+        run: node --test dev/test/*.test.mjs
+      - name: Install browser prerequisites
+        run: npx --no-install playwright install --with-deps chromium webkit
       - name: Run browser E2E
-        run: npx --no-install nx run devcontainer:exec -- node node_modules/nx/dist/bin/nx.js run app:test-e2e --skip-nx-cache
-      - name: Stop only this workspace
-        if: always()
-        run: npx --no-install nx run devcontainer:down -- --volumes
+        run: npx --no-install nx run app:test-e2e --skip-nx-cache
 
   sdk-unit-windows:
     name: Repository build and SDK unit tests (Windows)

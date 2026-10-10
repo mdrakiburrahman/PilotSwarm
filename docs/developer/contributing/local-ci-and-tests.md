@@ -7,12 +7,10 @@ tarball: the test harness and deployment templates are development sources.
 
 ## 1. Prerequisites
 
-For the maintained Windows → WSL → source-built devcontainer workflow, start
-with [CONTRIBUTING.md](../../../../CONTRIBUTING.md) and
-[Headless operations](../../../devcontainer/headless-operations.md).
-It supplies Node, Docker tooling, browser dependencies and separate disposable
-PostgreSQL services. The commands below remain supported for contributors
-using their own Linux development environment.
+For the maintained Windows → WSL workflow, start with
+[CONTRIBUTING.md](../../../../CONTRIBUTING.md). The idempotent host bootstrap
+supplies Node, Docker/Compose and repository-pinned Nx tooling. The UI dev loop
+uses `compose.ui.yml`; use a separate test-only database for the checks below.
 
 - Node.js **24 or later**, npm, Git and Bash. Run Windows commands in WSL.
 - Docker for a disposable stock PostgreSQL database, or your own test-only

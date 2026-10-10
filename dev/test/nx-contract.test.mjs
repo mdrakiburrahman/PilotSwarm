@@ -19,7 +19,6 @@ test("Nx exposes only explicit targets without caching external state", () => {
         ["packages/sdk/project.json", "sdk"],
         ["packages/app/project.json", "app"],
         ["packages/horizon-store/project.json", "horizon-store"],
-        [".devcontainer/project.json", "devcontainer"],
         ["dev/project.json", "local"],
         ["tools/auth-automation/project.json", "auth-automation"],
     ];
@@ -42,20 +41,22 @@ test("build graph retains workspace ordering and existing npm commands", () => {
     assert.match(json("package.json").scripts.build, /packages\/sdk.*pilotswarm-horizon-store.*pilotswarm/);
 });
 
-test("devcontainer test starts the same workspace before running checks", () => {
-    assert.deepEqual(json(".devcontainer/project.json").targets.test.dependsOn, ["up", "scripts-test"]);
+test("WSL development uses Nx and the Compose UI lifecycle without a devcontainer", () => {
     const contributing = read("CONTRIBUTING.md");
     assert.match(contributing, /& "\$GIT_ROOT\\dev\\bootstrap-dev-env\.ps1"/);
     assert.match(contributing, /git clone https:\/\/github\.com\/mdrakiburrahman\/PilotSwarm\.git/);
     assert.match(contributing, /## How to use, on a Linux machine/);
-    assert.match(contributing, /Or run the same environment headlessly:/);
-    assert.match(contributing, /npx --no-install nx run devcontainer:test/);
+    for (const action of ["ui-up", "ui-logs", "ui-down"]) {
+        assert.match(contributing, new RegExp(`npx nx run local:${action}`));
+        assert.match(json("dev/project.json").targets[action].options.command, /compose\.ui\.yml/);
+    }
+    assert.doesNotMatch(contributing, /devcontainer|docker kill|chmod 666/);
     assert.doesNotMatch(contributing, /AcceptFullReset|CQ:\\/);
 });
 
 test("verify aggregation excludes live gates, lifecycle and interactive auth", () => {
     const projects = ["project.json", "packages/sdk/project.json", "packages/app/project.json",
-        "packages/horizon-store/project.json", ".devcontainer/project.json", "tools/auth-automation/project.json"];
+        "packages/horizon-store/project.json", "tools/auth-automation/project.json"];
     for (const file of projects) {
         const project = json(file);
         const stack = ["verify"];
@@ -89,14 +90,14 @@ test("local launchers accept dedicated configuration without changing default .e
     assert.ok(!/chmod.*666|docker system prune/.test(local));
 });
 
-test("PR container coverage preserves existing native check jobs and requires no secrets", () => {
+test("PR development coverage preserves existing native check jobs and requires no secrets", () => {
     const workflow = read(".github/workflows/pr-checks.yml");
     assert.match(workflow, /sdk-unit-windows:/);
     assert.match(workflow, /\n  basic:/);
-    const container = workflow.slice(workflow.indexOf("  devcontainer:"), workflow.indexOf("  sdk-unit-windows:"));
-    assert.match(container, /devcontainer:up/);
-    assert.match(container, /devcontainer:test/);
+    const container = workflow.slice(workflow.indexOf("  development:"), workflow.indexOf("  sdk-unit-windows:"));
+    assert.match(container, /dev\/test\/\*\.test\.mjs/);
+    assert.match(container, /playwright install --with-deps/);
     assert.match(container, /app:test-e2e/);
-    assert.match(container, /if: always\(\)/);
+    assert.doesNotMatch(container, /devcontainer/);
     assert.ok(!/secrets\.|pull_request_target|azure|test-local/i.test(container));
 });

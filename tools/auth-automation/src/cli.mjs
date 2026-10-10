@@ -4,19 +4,22 @@ import { login } from './auth.mjs';
 import { createBrowser, installBrowser } from './browser.mjs';
 import { AuthError } from './policy.mjs';
 import { NodeProcesses, status } from './process.mjs';
-import { exactName, ghCommand, validateContainer } from './target.mjs';
+import { exactName, ghCommand } from './target.mjs';
 
 /** @param {string[]} args */
 export function parseArgs(args) {
   const [command, ...rest] = args;
   if (!['status', 'login', 'browser-install'].includes(command ?? '')) {
-    throw new AuthError('USAGE', 'Usage: cli.mjs status|login --wsl DISTRO [--container EXACT_ID --workspace /native/checkout] | --container EXACT_ID | --current [--timeout-ms 120000]. browser-install checks Windows Edge or installs Linux Chromium explicitly.');
+    throw new AuthError('USAGE', 'Usage: cli.mjs status|login [--wsl DISTRO | --current] [--timeout-ms 120000]. Windows requires --wsl DISTRO; --current is Linux only. browser-install checks Windows Edge or installs Linux Chromium explicitly.');
   }
   /** @type {Record<string,string>} */
   const flags = {};
   for (let index = 0; index < rest.length; index++) {
     const flag = rest[index];
-    if (!['--wsl', '--container', '--current', '--timeout-ms', '--workspace'].includes(flag) || flag in flags) throw new AuthError('USAGE', 'Unknown or duplicate authentication option.');
+    if (flag === '--container' || flag === '--workspace') {
+      throw new AuthError('INVALID_TARGET', `${flag} is no longer supported. Authenticate on the WSL host with --wsl DISTRO or on Linux with --current.`);
+    }
+    if (!['--wsl', '--current', '--timeout-ms'].includes(flag) || flag in flags) throw new AuthError('USAGE', 'Unknown or duplicate authentication option.');
     if (flag === '--current') flags[flag] = 'true';
     else {
       const value = rest[++index];
@@ -24,17 +27,13 @@ export function parseArgs(args) {
       flags[flag] = value;
     }
   }
-  if (flags['--current'] && (flags['--wsl'] || flags['--container'])) throw new AuthError('USAGE', 'Choose exactly one authentication target.');
+  if (flags['--current'] && flags['--wsl']) throw new AuthError('USAGE', 'Choose exactly one authentication target.');
   /** @type {import('./target.mjs').Target} */
   let target;
-  if (flags['--container']) target = { kind: 'container', container: exactName(flags['--container']),
-    ...(flags['--wsl'] ? { distro: exactName(flags['--wsl']) } : {}),
-    ...(flags['--workspace'] ? { workspace: flags['--workspace'] } : {}) };
-  else if (flags['--wsl']) target = { kind: 'wsl', distro: exactName(flags['--wsl']) };
+  if (flags['--wsl']) target = { kind: 'wsl', distro: exactName(flags['--wsl']) };
   else if (flags['--current'] || process.platform === 'linux') target = { kind: 'current' };
-  else if (command !== 'browser-install') throw new AuthError('USAGE', 'Windows requires a named --wsl distribution or exact --container ID.');
+  else if (command !== 'browser-install') throw new AuthError('USAGE', 'Windows requires a named --wsl distribution.');
   else target = { kind: 'current' };
-  if (flags['--workspace'] && (!flags['--wsl'] || !flags['--container'])) throw new AuthError('USAGE', '--workspace requires an exact --container and --wsl.');
   const timeoutMs = Number(flags['--timeout-ms'] ?? 120000);
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 300000) throw new AuthError('USAGE', 'Timeout must be 1000–300000 milliseconds.');
   if (command === 'browser-install' && Object.keys(flags).length) throw new AuthError('USAGE', 'browser-install acts only on the current browser host and accepts no target flags.');
@@ -55,7 +54,6 @@ export async function main(args) {
       return;
     }
     const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-    options.target = await validateContainer(repoRoot, options.target);
     const processes = new NodeProcesses();
     const statusCommand = ghCommand(options.target, 'status');
     if (options.command === 'status') {

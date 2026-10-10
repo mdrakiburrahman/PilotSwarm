@@ -139,7 +139,7 @@ run_sdk_unit_tests
         DATABASE_URL: "routed-database-placeholder",
     };
     delete inherited.PS_TEST_ENV_FILE;
-    for (const selected of [undefined, "", ".devcontainer/.state/baseline with spaces.env"]) {
+    for (const selected of [undefined, "", "test-config/baseline with spaces.env"]) {
         const env = { ...inherited };
         if (selected !== undefined) env.PS_TEST_ENV_FILE = selected;
         const output = execFileSync(bashExecutable(), ["-c", program], { env, encoding: "utf8" });

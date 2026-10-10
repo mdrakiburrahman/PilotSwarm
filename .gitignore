@@ -508,6 +508,4 @@ packages/app/test-results/
 
 # Nx and isolated development environment state.
 .nx/
-.devcontainer/.env
-.devcontainer/local/
 dev/.local/

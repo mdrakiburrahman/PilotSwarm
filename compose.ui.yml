@@ -4,7 +4,7 @@
 #
 # The image is built from deploy/Dockerfile.portal, which copies prebuilt dist
 # folders, so build first (the nx target does). GITHUB_TOKEN comes from your
-# shell. Nothing here is bind-mounted, so it also works from the devcontainer.
+# WSL shell. Nothing here is bind-mounted.
 name: pilotswarm-ui
 
 services:

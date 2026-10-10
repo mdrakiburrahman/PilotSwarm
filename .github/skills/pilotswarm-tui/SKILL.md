@@ -229,11 +229,12 @@ late deleted folders that a newer run had just found.
 
 ## Verification
 
-The source devcontainer exposes the same local platform through
-`npx nx run local:up|restart|smoke|down`. It uses `PS_LOCAL_ENV_FILE` and
-Compose-managed portal PostgreSQL separate from integration-test PostgreSQL.
-Keep the public client's TUI/portal behavior identical; the container is a
-development host, not a new runtime transport or cloud provider.
+The WSL host bootstrap installs native Node/npm, Docker/Compose and pinned Nx.
+The maintained UI dev loop uses `npx nx run local:ui-up|ui-logs|ui-down` with
+`compose.ui.yml` and localhost:3002. UI shutdown retains its database volume.
+Integration tests use a separate test database. Keep the public client's
+TUI/portal behavior identical; Compose is a deployment choice, not a runtime
+transport or cloud provider.
 
 Prefer fast local checks for TUI work:
 

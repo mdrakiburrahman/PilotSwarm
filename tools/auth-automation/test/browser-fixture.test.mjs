@@ -46,10 +46,8 @@ test('real controlled local DOM fixture: device input, exact consent, manual cha
   let stage = 'browser readiness';
   try {
     if (process.platform === 'linux') {
-      // This empty local-only fixture uses the same headless launcher as the
-      // container doctor, including its crashpad launch defaults. Container
-      // user namespaces prohibit Chromium's sandbox; this setting is never
-      // used by the real authentication adapter.
+      // This empty local-only fixture needs no authentication or credentials.
+      // Its headless sandbox setting is never used by the authentication adapter.
       context = await chromium.launchPersistentContext(directory, {
         headless: true, chromiumSandbox: false, timeout: 15000,
         args: ['--disable-extensions', '--disable-background-networking'],

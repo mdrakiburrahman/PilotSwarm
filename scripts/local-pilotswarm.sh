@@ -240,7 +240,7 @@ case "${1:-}" in
     down)
         stop_all
         if [[ "${PS_LOCAL_MANAGED_DATABASE:-0}" == 1 ]]; then
-            echo "[local] Compose-managed PostgreSQL keeps running. Use devcontainer:down to stop it."
+            echo "[local] Externally managed PostgreSQL keeps running. Stop it through its own lifecycle."
         else
             echo "[local] PostgreSQL keeps running. To stop it: docker stop pilotswarm-pg"
         fi

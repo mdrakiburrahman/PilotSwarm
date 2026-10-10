@@ -88,6 +88,17 @@ function Select-VhdPath {
     return "$($drives[$number - 1].DeviceID)\VHD\PilotSwarm"
 }
 
+function Clear-VhdDirectory {
+    param([string] $Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    if ($Path -notmatch '^[A-Za-z]:\\VHD\\PilotSwarm$') {
+        throw 'Automatic VHD deletion is restricted to <drive>:\VHD\PilotSwarm. Choose that dedicated directory.'
+    }
+    Assert-NoReparsePoint $Path -CheckDescendants
+    Write-Host "Deleting VHD destination: $Path"
+    Remove-Item -LiteralPath $Path -Recurse -Force
+}
+
 try {
     if (-not $PSBoundParameters.ContainsKey('FullReset') -and -not $DryRun -and -not $PreflightOnly) {
         $FullReset = $true
@@ -162,9 +173,9 @@ try {
     Write-Host "Docker Desktop installed registrations: $($desktopPackages.Count)"
     $null = Get-MpPreference
     if (Test-Path -LiteralPath $VhdPath) {
-        Assert-NoReparsePoint $VhdPath
-        if (@(Get-ChildItem -LiteralPath $VhdPath -Force).Count) {
-            throw 'VhdPath must be empty. Choose a new directory; this script never deletes existing VHD paths.'
+        Assert-NoReparsePoint $VhdPath -CheckDescendants
+        if ($VhdPath -notmatch '^[A-Za-z]:\\VHD\\PilotSwarm$') {
+            throw 'Automatic VHD deletion is restricted to <drive>:\VHD\PilotSwarm. Choose that dedicated directory.'
         }
     } else {
         $parent = [IO.DirectoryInfo]::new($VhdPath).Parent
@@ -219,6 +230,7 @@ try {
         Write-Host "Unregistering: $distro"
         Invoke-Checked wsl.exe @('--unregister', $distro)
     }
+    Clear-VhdDirectory $VhdPath
     foreach ($path in @($dockerRoots) + @($dockerDataPaths)) {
         if (Test-Path -LiteralPath $path) {
             Assert-NoReparsePoint $path -CheckDescendants

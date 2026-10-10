@@ -10,7 +10,8 @@
    ```
 
    Run PowerShell 7 as Administrator. This deletes all WSL distributions and
-   Docker Desktop data; back up first.
+   Docker Desktop data and recreates the selected `<drive>:\VHD\PilotSwarm`
+   directory; back up first.
 
 1. Clone the repo, and open VSCode in it:
 

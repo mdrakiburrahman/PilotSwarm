@@ -147,8 +147,43 @@ test('Windows destructive commands are gated, checked, and exact-targeted', () =
   assert.match(windows, /WSL inventory changed since preflight/);
   assert.match(windows, /Unconfirmed new distribution/);
   assert.match(windows, /'--distribution', 'Ubuntu-24\.04', '--location', \$VhdPath, '--no-launch'/);
-  assert.match(windows, /VhdPath must be empty/);
+  assert.match(windows, /Clear-VhdDirectory \$VhdPath/);
+  assert.ok(windows.indexOf('Clear-VhdDirectory $VhdPath') >
+    windows.indexOf("Invoke-Checked wsl.exe @('--unregister', $distro)"));
   assert.match(windows, /Copy-Item -LiteralPath \$wslConfig -Destination \$backup/);
+});
+
+test('Windows VHD cleanup deletes only the dedicated path and propagates failures', { skip: !hasPwsh }, () => {
+  const helper = windows.match(/function Clear-VhdDirectory \{[\s\S]*?\r?\n\}/)?.[0];
+  assert.ok(helper);
+  const mocks = `
+$global:removed = $null
+function Test-Path { return $true }
+function Assert-NoReparsePoint { param($Path, [switch] $CheckDescendants)
+    if (-not $CheckDescendants) { throw 'Descendant checks required' }
+}
+function Remove-Item { param($LiteralPath, [switch] $Recurse, [switch] $Force)
+    if (-not $Recurse -or -not $Force) { throw 'Expected scoped recursive cleanup' }
+    $global:removed = $LiteralPath
+}`;
+  const success = run(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+    `${helper}${mocks}
+Clear-VhdDirectory 'Q:\\VHD\\PilotSwarm'
+if ($global:removed -ne 'Q:\\VHD\\PilotSwarm') { exit 1 }`]);
+  assert.equal(success.status, 0, success.output);
+  for (const path of ['Q:\\', 'Q:\\VHD', 'C:\\Users', 'C:\\git\\PilotSwarm']) {
+    const result = run(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+      `${helper}${mocks}
+try { Clear-VhdDirectory '${path}'; exit 1 }
+catch { if ($null -ne $global:removed) { exit 1 }; exit 0 }`]);
+    assert.equal(result.status, 0, result.output);
+  }
+  const failure = run(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+    `${helper}${mocks}
+function Assert-NoReparsePoint { throw 'Unsafe junction' }
+try { Clear-VhdDirectory 'Q:\\VHD\\PilotSwarm'; exit 1 }
+catch { if ($null -ne $global:removed) { exit 1 }; exit 0 }`]);
+  assert.equal(failure.status, 0, failure.output);
 });
 
 test('Linux shell syntax parses without running commands', { skip: !bash }, () => {

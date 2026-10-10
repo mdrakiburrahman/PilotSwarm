@@ -16,7 +16,9 @@ $GIT_ROOT = git rev-parse --show-toplevel
 ```
 
 Choose a drive from the same numbered picker as the reference workflow. The
-destination is `<drive>:\VHD\PilotSwarm` and must be empty. The script inventories
+destination is `<drive>:\VHD\PilotSwarm` and is deleted and recreated after WSL
+distributions are unregistered. Automatic deletion is restricted to that dedicated
+path and rejects junctions/symlinks. The script inventories
 the actual host and checks prerequisites before deleting **all WSL distributions
 and Docker Desktop data**, without a typed reset confirmation. It also changes Defender exclusions,
 backs up/replaces global `.wslconfig`, and installs Ubuntu-24.04. This is a

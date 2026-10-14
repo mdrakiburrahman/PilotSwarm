@@ -1,0 +1,7 @@
+{
+  "name": "remote-relay",
+  "description": "Remote execution sample: an operator agent that runs commands on a machine listening on an Azure Relay hybrid connection, through privy.",
+  "version": "1.0.0",
+  "license": "MIT",
+  "agents": "agents/"
+}

@@ -6,6 +6,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "nx": {
+    "includedScripts": []
+  },
   "scripts": {
     "check:privacy": "node scripts/check-repository-privacy.mjs",
     "deploy": "node deploy/scripts/deploy.mjs",
@@ -72,6 +75,7 @@
     "papaparse": "^5.5.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.0-alpha-2026-07-20"
+    "@playwright/test": "^1.62.0-alpha-2026-07-20",
+    "nx": "23.2.1"
   }
 }

@@ -96,6 +96,14 @@ export class HttpApiTransport {
         return this.bootstrap?.logConfig || null;
     }
 
+    getRemoteExecutionConfig() {
+        return this.bootstrap?.remoteExecution || { enabled: false, openOnStart: false };
+    }
+
+    async listRemoteTargets() {
+        return this.api.call("listRemoteTargets");
+    }
+
     getModelsByProvider() {
         return this.bootstrap?.modelsByProvider || [];
     }

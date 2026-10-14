@@ -332,6 +332,8 @@ you must also keep [`.github/skills/pilotswarm-tui/SKILL.md`](./skills/pilotswar
 
 For the native TUI files inspector, keep the standard outer inspector shell as the top-level pane chrome. Do not reintroduce a second files-specific top-level shell around the tab body.
 
+Browser transcript containment must be seeded with measured intrinsic block heights and observe subsequent reflow; CSS-only estimates must not break bottom reachability or paused reading anchors. Keep backward-page anchors content-unique, and classify queued wheel input by its event timestamp while releasing touch momentum guards on the next touchstart. Retain browser coverage for bottom-follow, paging, and nested scroll handoff when changing this geometry.
+
 Pane headers in the shared UI should stay compact. Keep title text data plain; the portal may use a slim card header, while the TUI should render pane titles without a highlighted header background. When a pane narrows, prefer dropping low-priority title metadata such as session ids or recent-window labels before squeezing content.
 
 Session rows should show interval cron as `[cron <duration>]` and wall-clock cron as `[cron <next client-local time>]`; do not expose the internal `cron_at` tool name in row badges. The sequence and activity panes should render wall-clock `cron_at` lifecycle events with the same visible `cron` label and magenta styling as interval cron, including a visible wake-up indicator when `session.cron_at_fired` arrives.
@@ -501,6 +503,15 @@ For live runtime forensics — tracing orchestration/activity logs, session-affi
 
 ## Local instance
 
+The maintained Windows development workflow starts in `CONTRIBUTING.md`:
+PowerShell bootstrap → Ubuntu 24.04 checkout → idempotent Linux bootstrap → Nx.
+The maintained UI dev loop is `local:ui-up|ui-logs|ui-down` using
+`compose.ui.yml`, with the portal on localhost:3002. Keep host prerequisites
+and CONTRIBUTING aligned; no devcontainer is required. Never replace a
+maintainer's `.env` or private model catalog. Test databases remain separate
+from the Compose UI database; `PS_TEST_ENV_FILE` selects test configuration.
+Full local verification does not substitute for real HorizonDB release coverage.
+
 `scripts/local-pilotswarm.sh` runs the whole platform on one machine: the
 PostgreSQL container, the web portal with two workers inside the portal
 process, dev sign-in, and session workspaces on local folders.
@@ -522,6 +533,7 @@ scripts/local-pilotswarm.sh logs      # follow the portal and repo service logs
 | Workspace tab | The side pane's Workspace tab reads and writes the same folders: the portal gets `PORTAL_WORKSPACE_ROOTS` for them. File limit: `PORTAL_WORKSPACE_MAX_FILE_MB` (default 20). |
 | Canvas apps (canvas-ws) | Canvas apps may run the git commands their agent declared: `PORTAL_CANVAS_COMMANDS_RUNNER=local`. The Azure GitOps deployment sets it too when `WORKSPACES_ENABLED=true`. The program runs as the portal's own user, so turn it on only where you trust the people who sign in. |
 | Workspace cases | `PS_LOCAL_WORKSPACES=on` (default), `no-defaults` (repo clones only: a session without a repo has no folders), `no-portal` (the workers have workspaces, the portal serves none, so no Workspace tab), `off` (no workspaces). For example `PS_LOCAL_WORKSPACES=off scripts/local-pilotswarm.sh restart`. |
+| Remote execution | `PS_LOCAL_REMOTE_EXEC=on` (default off) with `PS_RELAY_SUBSCRIPTION`, `PS_RELAY_RESOURCE_GROUP`, `PS_RELAY_NAMESPACE`: the portal and TUI list the relay's connections (green = listener connected) and start a Remote Operator chat that runs commands through `privy`. Needs signed-in `az` and `privy` on PATH. `compose.ui.yml` bakes both into the image and starts in this mode. |
 | Models | `.model_providers.json` when it exists, else the GitHub Copilot catalog in `deploy/config/model_providers.local-docker.json`. `GITHUB_TOKEN` comes from `.env`. |
 
 It needs `.env` with `DATABASE_URL` and `GITHUB_TOKEN`, and git 2.46 or later.

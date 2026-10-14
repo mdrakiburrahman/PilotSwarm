@@ -94,6 +94,7 @@ const SESSION_STATS_REFRESH_MS = 20_000;
 const FLEET_STATS_REFRESH_MS = 30_000;
 const FLEET_STATS_DEFAULT_WINDOW_DAYS = 30;
 const SESSION_REFRESH_FAILED_STATUS = "Session refresh failed";
+const REMOTE_OPERATOR_AGENT = "remote-operator";
 const AUTO_HISTORY_SCROLL_PAGE_COUNT = 3;
 const SESSION_REFRESH_PAGE_LIMIT = 200;
 const FULLSCREENABLE_PANES = new Set([
@@ -2561,6 +2562,14 @@ export class PilotSwarmUiController {
             this.dispatch({ type: "sessions/navigationIntent", sessionId: deepLinkSessionId });
         }
         await this.refreshSessions();
+        // "Remote Execution" start mode: the deployment asks for the target
+        // list first, unless a deep link already chose where to land.
+        const remoteConfig = typeof this.transport.getRemoteExecutionConfig === "function"
+            ? this.transport.getRemoteExecutionConfig()
+            : null;
+        if (remoteConfig?.openOnStart && !deepLinkSessionId) {
+            await this.openRemoteExecutionPicker().catch(() => {});
+        }
         this.catalogTimer = setInterval(() => {
             // Do not queue more catalog traffic behind a slow periodic read.
             if (this.catalogPollInFlight) return;
@@ -7230,6 +7239,57 @@ export class PilotSwarmUiController {
         this.dispatch({ type: "ui/status", text: "Select an agent and press Enter" });
     }
 
+    /**
+     * Remote Execution: list the deployment's remote targets (green when a
+     * listener is connected) and start a Remote Operator chat bound to one.
+     */
+    isRemoteExecutionEnabled() {
+        const config = typeof this.transport.getRemoteExecutionConfig === "function"
+            ? this.transport.getRemoteExecutionConfig()
+            : null;
+        return Boolean(config?.enabled) && typeof this.transport.listRemoteTargets === "function";
+    }
+
+    async openRemoteExecutionPicker() {
+        if (!this.isRemoteExecutionEnabled()) {
+            this.dispatch({ type: "ui/status", text: "Remote execution is not configured for this deployment" });
+            return;
+        }
+        const previousFocus = this.getState().ui.focusRegion;
+        let targets;
+        try {
+            targets = await this.transport.listRemoteTargets();
+        } catch (error) {
+            this.dispatch({ type: "ui/status", text: `Could not list remote targets: ${error?.message || error}` });
+            return;
+        }
+        const items = (Array.isArray(targets) ? targets : []).map((target) => ({
+            id: String(target.id),
+            label: String(target.label || target.id),
+            available: Boolean(target.available),
+            listenerCount: Number(target.listenerCount) || 0,
+        }));
+        const firstAvailable = items.findIndex((item) => item.available);
+        this.dispatch({
+            type: "ui/modal",
+            modal: {
+                type: "remoteTargetPicker",
+                title: "Remote Execution",
+                items,
+                selectedIndex: Math.max(0, firstAvailable),
+                previousFocus,
+            },
+        });
+        this.dispatch({ type: "ui/status", text: "Select a remote target and press Enter" });
+    }
+
+    async startRemoteExecutionSession(item) {
+        return this.createSessionForAgent(REMOTE_OPERATOR_AGENT, {
+            title: `Remote · ${item.id}`,
+            initialPrompt: `Remote target: ${item.id}. Load its repo instructions, then tell me what you can do here.`,
+        });
+    }
+
     async openNewSessionFlow(options = {}) {
         const sessionPolicy = typeof this.transport.getSessionCreationPolicy === "function"
             ? this.transport.getSessionCreationPolicy()
@@ -9088,6 +9148,19 @@ export class PilotSwarmUiController {
                 return;
             }
             await this.openSessionAgentPicker(nextOptions, previousFocus);
+            return;
+        }
+        if (modal.type === "remoteTargetPicker") {
+            const item = modal.items?.[modal.selectedIndex || 0];
+            if (!item) return;
+            if (!item.available) {
+                this.dispatch({ type: "ui/status", text: `${item.label} has no listener — start it, then reopen this list` });
+                return;
+            }
+            const previousFocus = modal.previousFocus;
+            this.dispatch({ type: "ui/modal", modal: null });
+            if (previousFocus) this.setFocus(previousFocus);
+            await this.startRemoteExecutionSession(item);
             return;
         }
         if (modal.type === "sessionAgentPicker") {
@@ -11127,6 +11200,9 @@ export class PilotSwarmUiController {
                 return;
             case UI_COMMANDS.OPEN_SWITCH_MODEL_PICKER:
                 await this.openSwitchModelPicker();
+                return;
+            case UI_COMMANDS.OPEN_REMOTE_EXECUTION:
+                await this.openRemoteExecutionPicker();
                 return;
             case UI_COMMANDS.OPEN_THEME_PICKER:
                 this.openThemePicker();

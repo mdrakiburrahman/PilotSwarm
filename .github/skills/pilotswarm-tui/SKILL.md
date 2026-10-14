@@ -129,6 +129,7 @@ Do not bypass shared selectors/components with host-only UI logic unless the beh
 - In the sessions pane, `V` toggles multi-select mode (seeded with the active session). `Space` toggles selection on the active row, `Ctrl+G` moves every selected top-level non-system session through the move-to-group picker, `c` cancels every selected session in one confirmation (system sessions and groups are skipped), `d` completes selected sessions, `D` hard-deletes selected sessions, and `Esc` exits select mode. The portal mirrors selection with Cmd/Ctrl-click and Shift-click on session rows; the panel header reveals `Clear`, `Group (n)`, and `Terminate (n)`. `Terminate (n)` opens the same three-disposition picker for Complete, Cancel, and Hard Delete.
 - In the stats inspector, `f` cycles between the session, fleet, and users views; keep terminal and portal behavior aligned.
 - In the sessions pane, `n` fast-starts a generic session with the default model when generic sessions are allowed; if generic sessions are disabled, it falls back to the model-first creation flow when models are available, or the agent picker. `Shift+N` opens the model picker, then reasoning effort when applicable, then the generic/named-agent picker.
+- `Shift+X` opens the Remote Execution picker (only when `transport.getRemoteExecutionConfig().enabled`): relay targets with a live listener are green `●`, others grey `○`; Enter on a green target starts a `remote-operator` chat bound to it. The portal equivalent is the `⇄` Sessions-toolbar button. With `PS_REMOTE_EXECUTION_START=true` the picker opens on start.
 - The New/New+Model agent picker is fed by `transport.listCreatableAgents()`, not by worker logs. In remote mode, `packages/app/tui/src/node-sdk-transport.js` builds that metadata from `PLUGIN_DIRS`; if `session-policy.json.creation.bundledAgents` opts into SDK-bundled agents such as `generic-crawler`, the transport must expand those names from `packages/sdk/plugins/default-agents/` into `creatableAgents` so both native remote TUI and portal bootstrap show them.
 - The fleet stats view shows a compact `Fact Tombstones` card when facts tombstone
 	backlog is nonzero. The card is fed by `getFactsTombstoneStats` through the shared
@@ -150,6 +151,13 @@ Do not bypass shared selectors/components with host-only UI logic unless the beh
 - On mobile/coarse-pointer session lists, axis-locked drags track the finger and stop immediately on release or cancellation; never schedule an inertial fling. Preserve taps, deliberate horizontal panning, and desktop reorder behavior. This rule is session-list-only: chat and canvas retain their existing scrolling.
 - The chat live-activity `Working` card is governed by the session's running state, not by whether an assistant message has already appeared in the transcript. Assistant output can land before a turn is fully complete; keep the card visible until the session stops running.
 - In the portal, the live `Working` card and queued outbox are bottom-sticky flex siblings that reduce the transcript viewport height. `useScrollSync` must observe real viewport size changes and reapply the existing bottom/top anchor even when transcript lines did not change; otherwise the last transcript rows sit under the bottom fade and appear to slide behind `Working`. Preserve paused user scroll and touch momentum when re-anchoring.
+- Browser transcript layout skipping must use measured intrinsic block heights,
+  never a CSS-only height estimate. Observe block reflow as well as viewport
+  resizing so bottom-follow remains reachable and paused readers retain their
+  anchor; hovered/focused disclosures keep normal independent-scroll layout.
+  Backward paging must anchor unique content, not repeated timestamps or
+  index-reused DOM rows. A fresh touchstart ends the old touch momentum guard;
+  queued wheel input uses its event timestamp, not delayed handler execution.
 - Completing, cancelling, or deleting a parent session cascades the matching shutdown command to every live direct child and waits for those child sessions to become terminal before closing the parent. A child task/result marked `completed` is not the same as a terminal child session: non-system children remain alive for follow-up, so graceful shutdown must use authoritative CMS lifecycle status and still close an `idle` child.
 - The Admin Console (`Shift+A` in the native TUI; toolbar `Admin` button in the portal) is a workspace-replacing surface for per-user settings. It must never display the raw GitHub Copilot key text — `selectAdminConsole` and `selectAdminGhcpKeyEditorModal` only carry the `githubCopilotKeySet` boolean and a masked editor value. The TUI and portal share the `state.admin` slice in `ui-core` and route every mutation through the controller (`beginAdminEditGhcpKey`, `setAdminGhcpKeyDraft`, `cancelAdminEditGhcpKey`, `saveAdminGhcpKey`, `clearAdminGhcpKey`, `refreshAdminProfile`); keep both hosts in sync if you add a new admin setting. Do not globally block New/New+Model when the per-user GitHub key is unset: GitHub models should fail only at create time when neither env `GITHUB_TOKEN` nor the per-user key is available, and non-GitHub providers must remain usable.
 - In Admin Console → My Providers, portal `Update Key` and native TUI `Shift+U` replace the selected personal provider credential in place. Keep the password draft masked and clear it before awaiting the update. Never implement this as delete/recreate: provider identity, defaults, routing references, and usage history must remain intact.
@@ -221,6 +229,13 @@ late deleted folders that a newer run had just found.
 5. Update `.github/copilot-instructions.md` if contributor maintenance expectations changed.
 
 ## Verification
+
+The WSL host bootstrap installs native Node/npm, Docker/Compose and pinned Nx.
+The maintained UI dev loop uses `npx nx run local:ui-up|ui-logs|ui-down` with
+`compose.ui.yml` and localhost:3002. UI shutdown retains its database volume.
+Integration tests use a separate test database. Keep the public client's
+TUI/portal behavior identical; Compose is a deployment choice, not a runtime
+transport or cloud provider.
 
 Prefer fast local checks for TUI work:
 

@@ -34,6 +34,7 @@
 #
 # Prerequisites:
 #   - For baseline / --all-providers: PostgreSQL and GITHUB_TOKEN in .env.
+#     PS_TEST_ENV_FILE selects a dedicated local baseline config instead.
 #   - For --with-horizondb: .env.horizondb (or HORIZONDB_ENV_FILE) as a
 #     standalone config. It should duplicate any needed .env settings,
 #     HORIZON_DATABASE_URL supplies every runtime storage connection.
@@ -43,7 +44,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 SDK_DIR="packages/sdk"
-ENV_FILE=".env"
+ENV_FILE="${PS_TEST_ENV_FILE:-.env}"
 HORIZONDB_ENV_FILE="${HORIZONDB_ENV_FILE:-.env.horizondb}"
 
 WITH_HORIZONDB=0
@@ -660,7 +661,7 @@ run_sdk_unit_tests() {
         return 0
     fi
     echo "🧪 Running SDK unit tests (node --test)..."
-    (cd "$REPO_ROOT" && node --env-file-if-exists=.env --test packages/sdk/test/unit/*.test.mjs packages/sdk/api/test/*.test.mjs) \
+    (cd "$REPO_ROOT" && node --env-file-if-exists="$ENV_FILE" --test packages/sdk/test/unit/*.test.mjs packages/sdk/api/test/*.test.mjs) \
         || { echo "❌ SDK unit tests failed"; exit 1; }
     record_run_phase "SDK unit tests" "PASS"
     (cd "$REPO_ROOT/packages/horizon-store" && npm run --silent build) \

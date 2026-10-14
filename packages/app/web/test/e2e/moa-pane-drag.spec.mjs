@@ -14,12 +14,15 @@ async function fixture(page, {tree=example,theme='terminal-green',composerMode='
     const errors=[], sends=[], reads=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/api/v1/**', async route => {
-        const req=route.request(), path=new URL(req.url()).pathname;
+        const req=route.request(), url=new URL(req.url()), path=url.pathname;
         const reply=result=>route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,result})});
         if (path.endsWith('/me/profile/settings')) { settings=structuredClone(req.postDataJSON().settings); return reply({profileSettings:settings}); }
         if (path.endsWith('/me/profile')) return reply({isAdmin:false,profileSettings:settings});
         if (/\/sessions\/[^/]+\/messages$/.test(path)) { sends.push({path,...req.postDataJSON()}); return reply({queued:true}); }
-        if (/\/sessions\/[^/]+$/.test(path)) reads.push(path);
+        // Detail refreshes are scheduled after sends and durable events, even
+        // when a controller never reconnects. Count full transcript loads to
+        // detect a panel reinitializing, not those legitimate live refreshes.
+        if (/\/sessions\/[^/]+\/events$/.test(path) && !Number(url.searchParams.get('afterSeq'))) reads.push(req.url());
         return route.fallback();
     });
     await page.setViewportSize({width:1600,height:1000});

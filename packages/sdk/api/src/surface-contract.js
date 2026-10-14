@@ -29,6 +29,7 @@ export const NON_MANAGEMENT_OPERATION_OWNERS = Object.freeze({
     setCurrentUserProfileSettings: { owner: "WebPilotSwarmManagementClient", file: "packages/sdk/src/web/web-management-client.ts", className: "WebPilotSwarmManagementClient", method: "setUserProfileSettings", reason: "request principal is server-derived" },
     setCurrentUserGitHubCopilotKey: { owner: "WebPilotSwarmManagementClient", file: "packages/sdk/src/web/web-management-client.ts", className: "WebPilotSwarmManagementClient", method: "setUserGitHubCopilotKey", reason: "request principal is server-derived" },
     getLogConfig: { owner: "NodeSdkTransport", file: "packages/app/tui/src/node-sdk-transport.js", className: "NodeSdkTransport", method: "getLogConfig", reason: "deployment log integration" },
+    listRemoteTargets: { owner: "NodeSdkTransport", file: "packages/app/tui/src/node-sdk-transport.js", className: "NodeSdkTransport", method: "listRemoteTargets", reason: "deployment-configured remote execution provider" },
     getWorkerCount: { owner: "NodeSdkTransport", file: "packages/app/tui/src/node-sdk-transport.js", className: "NodeSdkTransport", method: "getWorkerCount", reason: "embedded host process count" },
 });
 

@@ -16,6 +16,9 @@
         },
         "./package.json": "./package.json"
     },
+    "nx": {
+        "includedScripts": []
+    },
     "scripts": {
         "build": "tsc",
         "dev": "tsc --watch",

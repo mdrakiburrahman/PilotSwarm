@@ -5936,6 +5936,12 @@ export function selectStatusBar(state) {
             right: "up/down move · enter create · esc cancel",
         };
     }
+    if (state.ui.modal?.type === "remoteTargetPicker") {
+        return {
+            left: "Select a remote target to run on",
+            right: "up/down move · enter start chat · esc cancel",
+        };
+    }
     if (state.ui.modal?.type === "themePicker") {
         return {
             left: "Select a theme",
@@ -7417,6 +7423,58 @@ export function selectContextTierPickerModal(state, maxWidth = 64) {
         rows,
         selectedRowIndex: selectedIndex,
         detailsTitle: "Context Window",
+        detailsLines,
+        idealWidth: Math.min(
+            Math.max(
+                46,
+                rows.reduce((max, row) => {
+                    if (Array.isArray(row)) return Math.max(max, flattenRunsLength(row));
+                    return Math.max(max, String(row?.text || "").length);
+                }, 0) + 4,
+            ),
+            maxWidth,
+        ),
+    };
+}
+
+export function selectRemoteTargetPickerModal(state, maxWidth = 64) {
+    const modal = state.ui.modal;
+    if (!modal || modal.type !== "remoteTargetPicker") return null;
+
+    const items = Array.isArray(modal.items) ? modal.items : [];
+    const selectedIndex = Math.max(0, Number(modal.selectedIndex) || 0);
+    const contentWidth = Math.max(24, maxWidth - 4);
+
+    const rows = items.map((item, index) => {
+        const available = Boolean(item?.available);
+        const labelRuns = fitRuns([
+            { text: available ? "● " : "○ ", color: available ? "green" : "gray" },
+            { text: String(item?.label || item?.id || "target"), color: available ? "white" : "gray", bold: available },
+            { text: available ? `  ${item.listenerCount} listener${item.listenerCount === 1 ? "" : "s"}` : "  no listener", color: "gray" },
+        ], contentWidth);
+        return index === selectedIndex
+            ? buildActiveHighlightLine(labelRuns.map((run) => run.text).join("").padEnd(contentWidth, " "))
+            : labelRuns;
+    });
+
+    const selectedItem = items[selectedIndex] || null;
+    const detailsLines = selectedItem
+        ? [
+            [{ text: String(selectedItem.label || selectedItem.id), color: "white", bold: true }],
+            [{
+                text: selectedItem.available
+                    ? "A listener is connected. Enter starts a chat that runs its commands on this machine."
+                    : "Nothing is listening on this connection. Start the listener, then reopen this list.",
+                color: selectedItem.available ? "green" : "yellow",
+            }],
+        ]
+        : [[{ text: "No remote targets found.", color: "gray" }]];
+
+    return {
+        title: modal.title || "Remote Execution",
+        rows: rows.length > 0 ? rows : [[{ text: "No remote targets found.", color: "gray" }]],
+        selectedRowIndex: selectedIndex,
+        detailsTitle: "Target",
         detailsLines,
         idealWidth: Math.min(
             Math.max(
@@ -9360,6 +9418,7 @@ const KEYBINDING_HELP = [
         ["c / d / D", "cancel / done / delete session"],
         ["ctrl-x  (ctrl-esc)", "stop the current turn", { dim: true }],
         ["T / N / M / A", "theme / new+model / switch model / admin"],
+        ["X", "remote execution — pick a relay target, chat runs commands there (when configured)"],
         ["?", "toggle this help"],
         ["q", "quit (double-tap)"],
         ["Esc", "back / focus sessions"],

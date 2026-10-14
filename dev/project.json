@@ -1,0 +1,63 @@
+{
+  "name": "local",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash scripts/local-pilotswarm.sh up",
+        "cwd": "."
+      }
+    },
+    "restart": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash scripts/local-pilotswarm.sh restart",
+        "cwd": "."
+      }
+    },
+    "down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash scripts/local-pilotswarm.sh down",
+        "cwd": "."
+      }
+    },
+    "logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash scripts/local-pilotswarm.sh logs",
+        "cwd": "."
+      }
+    },
+    "ui-up": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        {
+          "projects": [
+            "app"
+          ],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "GITHUB_TOKEN=\"${GITHUB_TOKEN:-$(gh auth token)}\" docker compose -f compose.ui.yml up --build --wait",
+        "cwd": "."
+      }
+    },
+    "ui-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "GITHUB_TOKEN=unused docker compose -f compose.ui.yml logs --tail 20 -f portal",
+        "cwd": "."
+      }
+    },
+    "ui-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "GITHUB_TOKEN=unused docker compose -f compose.ui.yml down",
+        "cwd": "."
+      }
+    }
+  }
+}

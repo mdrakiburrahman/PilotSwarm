@@ -3,7 +3,7 @@ import fs from "node:fs";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import {
     FilesystemArtifactStore,
@@ -924,6 +924,38 @@ export class NodeSdkTransport {
 
     getWorkerCount() {
         return this.workers.length || (this.mode === "remote" ? 0 : parseInt(process.env.WORKERS || "4", 10));
+    }
+
+    /**
+     * Remote execution is an optional provider module named by
+     * PS_REMOTE_EXECUTION_MODULE; it exports createProvider(env) returning
+     * { listTargets() }. Without it the feature is off and lists nothing.
+     */
+    getRemoteExecutionConfig() {
+        const enabled = Boolean(String(process.env.PS_REMOTE_EXECUTION_MODULE || "").trim());
+        const start = String(process.env.PS_REMOTE_EXECUTION_START || "").trim().toLowerCase();
+        return { enabled, openOnStart: enabled && ["1", "true", "yes", "on"].includes(start) };
+    }
+
+    async listRemoteTargets() {
+        if (!this.getRemoteExecutionConfig().enabled) return [];
+        if (!this._remoteProviderPromise) {
+            const specifier = String(process.env.PS_REMOTE_EXECUTION_MODULE).trim();
+            const isPath = path.isAbsolute(specifier) || specifier.startsWith("./") || specifier.startsWith("../");
+            this._remoteProviderPromise = import(isPath ? pathToFileURL(path.resolve(specifier)).href : specifier)
+                .then((mod) => {
+                    if (typeof mod?.createProvider !== "function") {
+                        throw new Error(`remote execution module ${specifier} exports no createProvider(env)`);
+                    }
+                    return mod.createProvider(process.env);
+                })
+                .catch((error) => {
+                    this._remoteProviderPromise = null;
+                    throw error;
+                });
+        }
+        const provider = await this._remoteProviderPromise;
+        return await provider.listTargets({ fresh: true });
     }
 
     getLogConfig() {

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+**Remote Execution (optional).** The portal and TUI can list an Azure Relay
+namespace's hybrid connections (green when a listener is connected) and start a
+Remote Operator chat that runs commands on that machine through `privy`. See
+`docs/developer/deploy/remote-execution.md`.
+
 ## 0.8.2 — 2026-10-04
 
 **Upgrade note: roll every worker and portal together.** This release moves

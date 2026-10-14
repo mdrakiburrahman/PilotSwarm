@@ -6,9 +6,9 @@
 // every frame. The cost is linear in node count (~1.55ms per 1000 nodes
 // measured), and a session's window can reach 10k events.
 //
-// content-visibility on each block makes the browser skip layout for anything
-// offscreen. Measured on a 30k-node transcript: 49.6ms -> 2.9ms per re-layout.
-// These tests guard both the declaration (deterministic) and the outcome.
+// Measured intrinsic heights let content-visibility skip offscreen layout
+// without guessing the initial scroll range. Observe block reflow so the
+// reader's bottom/paused anchor survives subsequent size changes.
 import { test, expect } from "@playwright/test";
 import { startStubServer } from "./stub-server.mjs";
 
@@ -40,16 +40,9 @@ async function openTranscript(page) {
     await page.waitForTimeout(1500);
 }
 
-// This used to assert `content-visibility: auto` on transcript lines. That
-// optimization was tried, measured (8.0ms -> 2.3ms per re-layout), and then
-// REVERTED, because the chat pane anchors to the bottom with pixel math over
-// scrollHeight and content-visibility makes scrollHeight an estimate: measured
-// 43,205 against a true 56,760, and the app's own scroll-to-bottom landed 251px
-// short, permanently.
-//
-// So the assertion is inverted. The invariant that matters is not "is the
-// optimization on" but "can you actually reach the end of the transcript",
-// which is what the optimization broke and what nothing was guarding.
+// CSS-only content-visibility was reverted after it underestimated scrollHeight
+// and stranded bottom-follow 251px above the end. The measured implementation
+// must retain this invariant, not merely declare an optimization.
 test("opening a session lands at the BOTTOM of its transcript", async ({ page }) => {
     await openTranscript(page);
     // Give the app's own anchoring, and the browser's scroll anchoring, time to
@@ -88,15 +81,11 @@ test("re-laying out the chat pane stays cheap on a long transcript", async ({ pa
         return Math.min(measure(), measure());
     });
 
-    // HONEST NUMBER: 6-8ms at this size. The transcript is not virtualised and
-    // the content-visibility fix for it was reverted (see the test above), so
-    // this is the real cost today, not a target.
-    //
-    // The ceiling is therefore a REGRESSION CEILING, not a budget met with room
-    // to spare: it catches the cost going up by an order of magnitude — which
-    // is what an accidental re-layout of every block, or losing the block memo
-    // guarded below, would do. Tightening it needs a real fix first.
+    // Keep the original budget. Skipping unobserved blocks must not trade
+    // away correct bottom-follow after their remembered sizes change.
     expect(ms, `${ms.toFixed(1)}ms to re-lay-out ${blocks} lines`).toBeLessThan(20);
+    await expect.poll(() => page.locator(".ps-chat-panel .ps-scroll-panel").evaluate(node =>
+        node.scrollHeight - node.clientHeight - node.scrollTop)).toBeLessThan(8);
 });
 
 test("dragging the pane splitter does not re-render the whole transcript", async ({ page }) => {

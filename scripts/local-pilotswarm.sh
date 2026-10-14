@@ -19,7 +19,8 @@
 #                    shared/  a folder every session gets
 #                    home/    each person's own folder (users/<person>)
 #
-# Needs: .env with DATABASE_URL (local PostgreSQL) and GITHUB_TOKEN (a GitHub
+# Needs: .env (or PS_LOCAL_ENV_FILE) with DATABASE_URL (local PostgreSQL)
+# and GITHUB_TOKEN (a GitHub
 # Copilot token), and git 2.46 or later.
 #
 # Optional settings:
@@ -34,6 +35,10 @@
 #                              no-defaults  repo clones only: a session started without a repo has no folders
 #                              no-portal    the workers have workspaces; the portal serves none of them
 #                              off          no workspaces at all
+#   PS_LOCAL_REMOTE_EXEC     Remote Execution over Azure Relay (default off). Set to "on" with
+#                            PS_RELAY_SUBSCRIPTION, PS_RELAY_RESOURCE_GROUP and PS_RELAY_NAMESPACE;
+#                            needs `az` (signed in) and `privy` on PATH. The portal then offers
+#                            the remote targets (green = listener connected).
 
 set -euo pipefail
 
@@ -46,6 +51,7 @@ REPO_PORT="${PS_LOCAL_REPO_PORT:-8080}"
 PORT="${PORT:-3001}"
 REPO_PID="$LOCAL_DIR/repo-service.pid"
 WORKSPACES="${PS_LOCAL_WORKSPACES:-on}"
+LOCAL_ENV_FILE="${PS_LOCAL_ENV_FILE:-.env}"
 case "$WORKSPACES" in
     on|no-defaults|no-portal|off) ;;
     *) echo "[local] PS_LOCAL_WORKSPACES must be on, no-defaults, no-portal or off" >&2; exit 1 ;;
@@ -57,8 +63,9 @@ REPOS='{"duroxide": {"upstream": "https://github.com/microsoft/duroxide.git", "s
 cd "$REPO_ROOT"
 
 check_env() {
-    if ! grep -q '^DATABASE_URL=.' .env 2>/dev/null || ! grep -q '^GITHUB_TOKEN=.' .env 2>/dev/null; then
-        echo "[local] .env needs DATABASE_URL (local PostgreSQL) and GITHUB_TOKEN (a GitHub Copilot token)." >&2
+    if ! grep -q '^DATABASE_URL=.' "$LOCAL_ENV_FILE" 2>/dev/null \
+        || { [[ -z "${GITHUB_TOKEN:-}" ]] && ! grep -q '^GITHUB_TOKEN=.' "$LOCAL_ENV_FILE" 2>/dev/null; }; then
+        echo "[local] $LOCAL_ENV_FILE needs DATABASE_URL and GITHUB_TOKEN (or an exported Copilot token)." >&2
         exit 1
     fi
 }
@@ -66,6 +73,9 @@ check_env() {
 # The local PostgreSQL container, when there is one: started if it is stopped.
 # It has no restart policy, so it is stopped after a reboot.
 start_database() {
+    if [[ "${PS_LOCAL_MANAGED_DATABASE:-0}" == 1 ]]; then
+        return
+    fi
     if ! docker info >/dev/null 2>&1; then
         echo "[local] Docker is not running. If DATABASE_URL points at the pilotswarm-pg container, start Docker Desktop first." >&2
         return
@@ -188,9 +198,18 @@ start_portal() {
         # as you (docs/developer/building/workspace-providers.md, canvas-ws).
         export PORTAL_CANVAS_COMMANDS_RUNNER=local
     fi
+    unset PS_REMOTE_EXECUTION_MODULE PS_REMOTE_EXECUTION_START
+    if [[ "${PS_LOCAL_REMOTE_EXEC:-off}" == on ]]; then
+        REMOTE_MODULE="$REPO_ROOT/packages/sdk/examples/remote-relay/index.mjs"
+        export PLUGIN_DIRS="$PLUGIN_DIRS,$REPO_ROOT/packages/sdk/examples/remote-relay/plugin"
+        export PILOTSWARM_EXTENSION_MODULES="${PILOTSWARM_EXTENSION_MODULES:+$PILOTSWARM_EXTENSION_MODULES,}$REMOTE_MODULE"
+        export PS_REMOTE_EXECUTION_MODULE="$REMOTE_MODULE"
+        export PS_REMOTE_EXECUTION_START="${PS_REMOTE_EXECUTION_START:-true}"
+    fi
     export GIT_AUTHOR_NAME="PilotSwarm agent" GIT_AUTHOR_EMAIL=agent@pilotswarm.invalid
     export GIT_COMMITTER_NAME="PilotSwarm agent" GIT_COMMITTER_EMAIL=agent@pilotswarm.invalid
-    PORT="$PORT" ./scripts/portal-start.sh local --port "$PORT"
+    PORTAL_ENV_FILE="$LOCAL_ENV_FILE" PORTAL_LOG_DIR="$LOGS" \
+        PORT="$PORT" bash ./scripts/portal-start.sh local --port "$PORT"
 }
 
 stop_all() {
@@ -205,6 +224,7 @@ stop_all() {
 summary() {
     echo "[local] Portal:  http://localhost:$PORT (sign in as Ada, Alice, Bob, Carol or Dave)"
     echo "[local] Folders: $WS"
+    if [[ "${PS_LOCAL_REMOTE_EXEC:-off}" == on ]]; then echo "[local] Remote execution: on (PS_LOCAL_REMOTE_EXEC)"; fi
     if [[ "$WORKSPACES" != on ]]; then echo "[local] Workspaces: $WORKSPACES (PS_LOCAL_WORKSPACES)"; fi
     echo "[local] Logs:    scripts/local-pilotswarm.sh logs"
 }
@@ -232,7 +252,11 @@ case "${1:-}" in
         ;;
     down)
         stop_all
-        echo "[local] PostgreSQL keeps running (the tests use it too). To stop it: docker stop pilotswarm-pg"
+        if [[ "${PS_LOCAL_MANAGED_DATABASE:-0}" == 1 ]]; then
+            echo "[local] Externally managed PostgreSQL keeps running. Stop it through its own lifecycle."
+        else
+            echo "[local] PostgreSQL keeps running. To stop it: docker stop pilotswarm-pg"
+        fi
         ;;
     reset)
         stop_all
@@ -241,7 +265,7 @@ case "${1:-}" in
         echo "[local] Removed $WS. The database is kept."
         ;;
     logs)
-        tail -n 50 -f /tmp/portal-server.log "$LOGS/repo-service.log"
+        tail -n 50 -f "$LOGS/portal-server.log" "$LOGS/repo-service.log"
         ;;
     *)
         sed -n '2,9p' "$0"

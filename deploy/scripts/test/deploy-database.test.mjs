@@ -378,7 +378,7 @@ test("a GitHub Actions run signs in to Azure again right before each manifest up
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ value: "fixture-oidc-assertion" }));
     });
-    s.listen(0, "127.0.0.1", () => console.log(s.address().port));
+    s.listen(0, "127.0.0.1", () => console.log(String(s.address().port)));
   `], { stdio: ["ignore", "pipe", "inherit"] });
   t.after(() => server.kill());
   const port = await new Promise((resolve, reject) => {
@@ -411,7 +411,7 @@ test("a GitHub Actions run signs in to Azure again right before seed-secrets wri
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ value: "fixture-oidc-assertion" }));
     });
-    s.listen(0, "127.0.0.1", () => console.log(s.address().port));
+    s.listen(0, "127.0.0.1", () => console.log(String(s.address().port)));
   `], { stdio: ["ignore", "pipe", "inherit"] });
   t.after(() => server.kill());
   const port = await new Promise((resolve, reject) => {

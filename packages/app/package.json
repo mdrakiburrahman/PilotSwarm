@@ -50,6 +50,9 @@
         "ui/react/src/**/*",
         "README.md"
     ],
+    "nx": {
+        "includedScripts": []
+    },
     "scripts": {
         "build": "npm run build:web && npm run build:mcp",
         "build:web": "cd web && node ../node_modules/vite/bin/vite.js build",

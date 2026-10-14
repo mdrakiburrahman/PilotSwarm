@@ -189,6 +189,16 @@ The chat pane can render either the durable transcript or a structured session
 summary card. The mode is shared state in `ui-core`; the native TUI toggles it
 with `s` while the portal exposes the same choice as a compact segmented control.
 
+The browser host measures transcript blocks before enabling offscreen layout
+skipping and retains those intrinsic heights. Its scroll hook observes block
+reflow and viewport resizing to preserve bottom-follow and paused reading
+anchors; hovered or keyboard-focused disclosures retain normal layout for
+independent scrolling. Backward paging identifies unique visible content rather
+than repeated timestamps or index-reused DOM nodes. Touch momentum is bounded by
+the next touchstart, while wheel bursts use input timestamps so queued events
+remain correctly classified during expensive layout. These are browser geometry
+mechanisms, not different transcript semantics from the native TUI.
+
 ### Terminal interaction flow
 
 ```text

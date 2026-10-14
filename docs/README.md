@@ -56,6 +56,7 @@ Building **on** PilotSwarm, deploying it, and contributing **to** it.
 - [Agent contracts](./developer/reference/agent-contracts.md) — prompt/tool/runtime rules that stay true across code, docs, tests
 
 **Contributing to PilotSwarm**
+- [Contributing](../CONTRIBUTING.md) — Windows → WSL bootstrap and Nx-managed Compose UI development
 - [Working on PilotSwarm](./developer/contributing/working-on-pilotswarm.md) — repo map, workflows, checklists
 - [TUI implementor guide](./developer/contributing/tui-implementor-guide.md)
 - [High-severity dependency plan](./developer/contributing/high-dependency-remediation.md) — advisory inventory and upgrade batches

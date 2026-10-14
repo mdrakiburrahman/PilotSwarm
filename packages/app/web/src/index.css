@@ -1347,25 +1347,15 @@ body.is-resizing-pane-y iframe {
   word-break: break-word;
 }
 
-/* NOT content-visibility. It was tried here and reverted.
- *
- * The win was real — 8.0ms to 2.3ms per re-layout on a 600-turn transcript —
- * but the chat pane anchors to the bottom with pixel math over scrollHeight,
- * and content-visibility makes scrollHeight an ESTIMATE for lines that have
- * never rendered. Measured on that same fixture at 1440x900: scrollHeight
- * 43,205 with the rule against 56,760 without, and the app's own
- * scroll-to-bottom landed 251px short — permanently, because nothing
- * re-triggers the correction once anchoring gives up. The last lines of a
- * finished session were unreachable without a second gesture.
- *
- * The scrollbar was also understating the transcript by ~24% and growing
- * under the thumb as skipped lines rendered.
- *
- * Anything reintroduced here has to survive `scrollHeight` being load-bearing:
- * either make the anchoring element-relative (scrollIntoView on the last line)
- * rather than pixel math, or virtualise properly. A CSS-only fix is not
- * available while the pane measures itself this way.
- */
+/* The scroll hook enables containment only AFTER measuring actual block
+   heights, and observes subsequent reflow to maintain the current anchor.
+   Never replace those measured intrinsic sizes with a CSS-only estimate:
+   that understates scrollHeight and can strand bottom-follow above the end.
+   A disclosure under the pointer or keyboard focus retains normal layout for
+   its independent scroller and native edge handoff. */
+.ps-chat-panel .ps-scroll-panel > [data-ps-measured-block]:not(:hover):not(:focus-within) {
+  content-visibility: auto;
+}
 
 .ps-panel.has-preserved-sticky .ps-panel-sticky .ps-line,
 .ps-scroll-panel.is-preserve .ps-line {
@@ -10788,6 +10778,15 @@ textarea.ps-link-input {
   background: var(--w95-face);
   color: var(--w95-shadow);
   opacity: 1;
+}
+
+/* Maximized canvas controls live on the navy application title bar, not
+   the grey canvas toolbar. Keep their foreground/background paired there. */
+:root[data-ps-theme="win95"] .portal-header .ps-toolbar .ps-toolbar-canvas-slot .ps-html-zoom :is(.ps-html-zoom-btn, .ps-html-zoom-level) {
+  background: transparent;
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 /* Pressed while clicked, and for a tab or toggle that is on: the inset,

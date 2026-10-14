@@ -7,6 +7,11 @@ tarball: the test harness and deployment templates are development sources.
 
 ## 1. Prerequisites
 
+For the maintained Windows → WSL workflow, start with
+[CONTRIBUTING.md](../../../../CONTRIBUTING.md). The idempotent host bootstrap
+supplies Node, Docker/Compose and repository-pinned Nx tooling. The UI dev loop
+uses `compose.ui.yml`; use a separate test-only database for the checks below.
+
 - Node.js **24 or later**, npm, Git and Bash. Run Windows commands in WSL.
 - Docker for a disposable stock PostgreSQL database, or your own test-only
   PostgreSQL server. The GitHub runner uses PostgreSQL 16.

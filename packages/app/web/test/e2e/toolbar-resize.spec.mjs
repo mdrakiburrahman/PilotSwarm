@@ -39,6 +39,16 @@ for (const themeId of ['workspace-dark','terminal-green','win95','winamp','ms-do
    await page.screenshot({path:`/tmp/toolbar-resize-${themeId}.png`});
    await page.getByRole('button',{name:'Master of Agents',exact:true}).click();
    for(const width of [1440,1100,921]) {await page.setViewportSize({width,height:900});await check();}
-  } finally {await new Promise(r=>stub.server.close(r));}
+  } finally {
+   // Stop the page's catalog polling before awaiting HTTP shutdown. The page
+   // fixture otherwise closes only after this test returns, so an in-flight
+   // keep-alive request can leave server.close waiting on that same fixture.
+   await page.close();
+   const closed = new Promise(r=>stub.server.close(r));
+   // A browser can leave a preconnected/incomplete HTTP socket behind even
+   // after its page closes. This fixture is finished; drain those sockets too.
+   stub.server.closeAllConnections();
+   await closed;
+  }
  });
 }

@@ -1,112 +1,71 @@
-# Contributing to PilotSwarm
+# Contributing
 
-PilotSwarm is **experimental** and under active development. Contributions are
-welcome, but please understand that the API surface, internal layout, and
-release cadence are still in flux. Treat this as a research-grade project
-rather than a stable platform.
+## How to use, on a Linux machine
 
-## Before You Start
+1. Get a fresh new WSL machine up:
 
-- Read the [README](README.md) and [Architecture](./docs/architecture/system.md) to
-  understand the layering: client → orchestration → worker → managed session.
-- For changes inside the durable session orchestration, read
-  [Orchestration Design](./docs/architecture/orchestration/design.md). The orchestration is a
-  duroxide replay generator — changing the order of yields is a versioning
-  event, not a free refactor.
-- Open an issue first for non-trivial work so we can discuss design before
-  you spend time on a PR.
+   ```powershell
+   $GIT_ROOT = git rev-parse --show-toplevel
+   & "$GIT_ROOT\dev\bootstrap-dev-env.ps1"
+   ```
 
-## Development Setup
+   Run PowerShell 7 as Administrator. This deletes all WSL distributions and
+   Docker Desktop data and recreates the selected `<drive>:\VHD\PilotSwarm`
+   directory; back up first. Skip this step for an existing WSL machine.
 
-Follow [Local tests and CI setup](docs/developer/contributing/local-ci-and-tests.md)
-for Node.js 24+, credential-free PR checks, a disposable PostgreSQL container,
-optional full/additive HorizonDB tests, and installing the GitHub workflows in
-your own repository. It documents the actual full test wrapper and eight-file
-parallelism. Never use an application database for test cleanup.
+1. Clone the repo:
 
-## Project Layout
+   ```bash
+   sudo install -d -m 0775 -o "$USER" -g "$USER" /workspaces
+   cd /workspaces
 
-```
-packages/
-  sdk/           — runtime, orchestration, worker, session manager, CMS catalog
-    api/         —   zero-dep isomorphic Web API client (pilotswarm-sdk/api)
-  app/           — the "pilotswarm" application package
-    tui/         —   terminal UI host (+ pilotswarm/host node layer)
-    web/         —   portal server (Web API host) + browser portal UI
-    mcp/         —   MCP server (Web API mode)
-    ui/          —   shared UI layers (pilotswarm/ui-core, pilotswarm/ui-react)
-  horizon-store/ — optional enhanced facts/graph provider (dynamically imported)
-docs/            — see docs/README.md (quickstart, user guide, architecture, API, developer)
-deploy/          — Dockerfiles, Kubernetes manifests, runtime supervisor
-```
+   git config --global user.name "Your Name"
+   git config --global user.email "you@example.com"
+   git clone https://github.com/mdrakiburrahman/PilotSwarm.git
 
-Most contributions live under `packages/sdk/src/`.
+   cd PilotSwarm/
+   git checkout dev/mdrrahman/explore
+   ```
 
-## Pull Request Conventions
+1. Run the bootstrapper script, that installs all tools idempotently:
 
-- **One change per PR.** Refactors, bug fixes, and features should be separate
-  PRs even if related. It makes review possible.
-- **Tests required for behavior changes.** New activities, orchestration
-  branches, or tool implementations need at least one test under
-  `packages/sdk/test/local/`. Pure refactors don't need new tests but must
-  keep the existing suite green.
-- **Keep `tsc --noEmit` clean.** Add types rather than `any` where practical.
-- **Conventional-ish commit messages.** No strict tooling, but follow the
-  style in `git log`: lowercase prefix (`sdk:`, `orch:`, `ui:`, `docs:`),
-  concise subject, blank line, then a body that explains *why*.
-- **Don't change the orchestration without a version bump.** If your change
-  alters the order, count, or arguments of `yield` calls inside any
-  `durableSessionOrchestration_*` handler, you must:
-  1. Freeze the current latest as a `_X_Y_Z.ts` sibling
-  2. Edit `packages/sdk/src/orchestration-version.ts` to bump the latest
-  3. Update `packages/sdk/src/orchestration-registry.ts`
-  4. Trim the registry to versions at or above the compatibility floor
+   ```bash
+   GIT_ROOT=$(git rev-parse --show-toplevel)
+   chmod +x ${GIT_ROOT}/dev/bootstrap-dev-env.sh && ${GIT_ROOT}/dev/bootstrap-dev-env.sh
+   ```
 
-  See [docs/architecture/orchestration/design.md §12](./docs/architecture/orchestration/design.md) for the
-  full replay-safety rules.
+   It installs native Node 24/npm, Git, GitHub CLI, Docker Engine and Compose,
+   build prerequisites, and repository-pinned Nx tooling with `npm ci`.
+   Existing Docker data is preserved. If Docker group membership changed,
+   reopen WSL or run `newgrp docker`; do not make the socket world-writable.
 
-## Continuous Integration
+1. Authenticate GitHub CLI:
 
-The full test suite is explicitly maintainer-triggered. Forks won't auto-run it.
-Once review converges, a repository writer/maintainer can post a new standalone
-`/test all` comment on your PR. The bot replies with the pinned SHA and run link;
-environment approval is still required. Alternatively, the maintainer can
-dispatch **Tests** from `main` with your `pr_number`, `providers=all`, and a blank
-`suite`, then approve that exact head SHA. The result appears on the tested
-commit; new commits need a new run. See [maintainer PR testing](.github/CI.md#maintainer-triggered-tests-before-merging-a-pr).
+   ```bash
+   gh auth login
+   ```
 
-You can run the full local suite at any time:
+   Live agents need a GitHub account with Copilot access.
 
-```bash
-./scripts/run-tests.sh
-```
+1. Run in another terminal:
 
-It takes about 6 minutes against a healthy local Postgres + Copilot token.
+   To see the Remote Execution relay listeners in the UI, sign in to Azure on the
+   host (`az login`) and keep the token refresher running in a second terminal. The
+   portal container reads the token from `/tmp/ps-relay/token`; without it the
+   relay list stays empty:
 
-## Coding Style
+   ```bash
+   scripts/relay-token.sh --loop   # writes the token now, then refreshes every 30 minutes
+   ```
 
-- TypeScript for new SDK code; JavaScript is fine for ui-core/ui-react/cli.
-- 4-space indent, double-quoted strings.
-- Avoid premature abstractions. Three similar lines beat a half-thought-out
-  helper. The `simplify` skill in this repo lays out the philosophy.
-- Avoid comments that describe *what* the code does. Comments are for *why* —
-  hidden constraints, subtle invariants, surprising behavior.
+1. Run the full UI stack (PostgreSQL plus the web portal with two workers)
+   using `compose.ui.yml`, from the WSL checkout:
 
-## Filing Issues
+   ```bash
+   sudo chmod 666 /var/run/docker.sock
 
-Helpful issue reports include:
-
-- the version of `pilotswarm-sdk` (or commit SHA if running from source)
-- minimal reproduction steps
-- the orchestration version (`packages/sdk/src/orchestration-version.ts`)
-- relevant log output (worker traces, session events) — redact secrets first
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the
-[MIT License](LICENSE).
-
-Retain the original-contributor and Microsoft copyright notices when packaging
-or redistributing the project. Each workspace package carries the complete
-root license text. See the [high-severity dependency remediation plan](docs/developer/contributing/high-dependency-remediation.md)
-for the current advisory inventory and reviewable upgrade batches.
+   export CI=true
+   npx nx run local:ui-up      # build, start, wait until healthy; then open http://localhost:3002
+   npx nx run local:ui-logs    # follow the portal log
+   npx nx run local:ui-down    # stop (the database volume is kept)
+   ```

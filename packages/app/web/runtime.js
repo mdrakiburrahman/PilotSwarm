@@ -626,6 +626,9 @@ export class PortalRuntime {
             logConfig: typeof this.transport.getLogConfig === "function"
                 ? this.transport.getLogConfig()
                 : null,
+            remoteExecution: typeof this.transport.getRemoteExecutionConfig === "function"
+                ? this.transport.getRemoteExecutionConfig()
+                : { enabled: false, openOnStart: false },
             defaultModel: typeof this.transport.getDefaultModel === "function"
                 ? this.transport.getDefaultModel()
                 : null,
@@ -1362,6 +1365,10 @@ export class PortalRuntime {
                 return this.transport.getLogConfig();
             case "getWorkerCount":
                 return this.transport.getWorkerCount();
+            case "listRemoteTargets":
+                return typeof this.transport.listRemoteTargets === "function"
+                    ? this.transport.listRemoteTargets()
+                    : [];
             default:
                 throw new Error(`Unsupported portal RPC method: ${method}`);
         }

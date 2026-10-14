@@ -61,6 +61,7 @@ import {
     selectUsageAgents,
     selectReasoningEffortPickerModal,
     selectContextTierPickerModal,
+    selectRemoteTargetPickerModal,
     selectRenameSessionModal,
     selectSessionAgentPickerModal,
     selectSessionGroupNameModal,
@@ -1183,6 +1184,30 @@ function useScrollSync(ref, lines, scrollOffset, scrollMode, paneKey, controller
     const userScrollRef = React.useRef({ touching: false, lastUserScrollAt: 0, lastDispatchedOffset: null });
     const viewportSizeRef = React.useRef({ width: null, height: null });
     const [viewportRevision, setViewportRevision] = React.useState(0);
+    const measuredBlocksRef = React.useRef(new WeakSet());
+
+    React.useLayoutEffect(() => {
+        const node = ref.current;
+        if (!node || !stickyBottom) return;
+        // Seed real sizes before enabling skipped offscreen layout. A CSS-only
+        // intrinsic-size guess understates scrollHeight and strands the reader
+        // above the final message. Remembered measured sizes keep the initial
+        // scroll range exact while avoiding full-transcript layout on resize.
+        const fresh = [...node.children].filter(child => !measuredBlocksRef.current.has(child));
+        const heights = fresh.map(child => child.getBoundingClientRect().height);
+        fresh.forEach((child, index) => {
+            child.style.containIntrinsicBlockSize = `auto ${heights[index]}px`;
+            child.dataset.psMeasuredBlock = "true";
+            measuredBlocksRef.current.add(child);
+        });
+        if (typeof ResizeObserver === "undefined") return;
+        // Visible blocks can change size as they reflow or a disclosure opens.
+        // Reapply the existing anchor, including bottom-follow, after that
+        // geometry change rather than relying on an estimated scrollHeight.
+        const observer = new ResizeObserver(() => setViewportRevision(revision => revision + 1));
+        for (const child of node.children) observer.observe(child);
+        return () => observer.disconnect();
+    }, [normalizedLines, ref, stickyBottom]);
 
     React.useLayoutEffect(() => {
         const node = ref.current;
@@ -1302,14 +1327,16 @@ function useScrollSync(ref, lines, scrollOffset, scrollMode, paneKey, controller
         const node = ref.current;
         if (!node || !paneKey) return;
         const historyScroll = historyScrollRef.current;
-        if (historyScroll?.applied && performance.now() <= historyScroll.releaseAt
+        if (historyScroll?.applied && (historyScroll.gesture === "touch" || performance.now() <= historyScroll.releaseAt)
             && node.scrollTop < historyScroll.target) {
             // Native touch momentum may continue without another touchmove.
             node.scrollTop = historyScroll.target;
             historyScroll.releaseAt = performance.now() + HISTORY_SCROLL_GESTURE_GAP_MS;
             return;
         }
-        if (historyScroll?.applied && performance.now() > historyScroll.releaseAt) historyScrollRef.current = null;
+        // Wheel input releases its own burst guard; a delayed programmatic
+        // scroll event must not retire it before that queued input is handled.
+        // Touch momentum has no time limit: the next touchstart releases it.
         const pendingProgrammatic = programmaticScrollRef.current;
         if (pendingProgrammatic) {
             if (Math.abs(node.scrollTop - pendingProgrammatic.target) <= PROGRAMMATIC_SCROLL_TOLERANCE_PX) {
@@ -1357,16 +1384,28 @@ function useScrollSync(ref, lines, scrollOffset, scrollMode, paneKey, controller
         }
     }, [controller, dispatchScrollOffset, paneKey, ref, scrollMode, stickyBottom]);
 
-    const requestHistoryPage = React.useCallback(() => {
+    const requestHistoryPage = React.useCallback((gesture = "wheel") => {
         const node = ref.current;
         const state = controller.getState();
         const sessionId = state.sessions.activeSessionId;
         if (!node || !sessionId || !historyPullEnabled || historyScrollRef.current) return;
         const top = node.getBoundingClientRect().top;
-        const element = [...node.children].find(child => child.textContent?.trim() && child.getBoundingClientRect().bottom > top + 6);
+        // Timestamp/header text can repeat across a whole page. Index-keyed
+        // prose rows are reused after a prepend, so neither the old element
+        // nor the first row with the same timestamp identifies the reader.
+        // Anchor a unique content row instead.
+        const children = [...node.children];
+        const textCounts = new Map();
+        for (const child of children) {
+            const text = child.textContent;
+            textCounts.set(text, (textCounts.get(text) || 0) + 1);
+        }
+        const element = children.find(child => child.textContent?.trim()
+            && textCounts.get(child.textContent) === 1
+            && child.getBoundingClientRect().bottom > top + 6);
         const pending = {
             sessionId, oldestSeq: state.history.bySessionId.get(sessionId)?.events?.[0]?.seq,
-            height: node.scrollHeight, applied: false,
+            height: node.scrollHeight, applied: false, gesture,
             anchor: element ? { element, text: element.textContent, top: element.getBoundingClientRect().top } : null,
         };
         historyScrollRef.current = pending;
@@ -1389,10 +1428,13 @@ function useScrollSync(ref, lines, scrollOffset, scrollMode, paneKey, controller
         if (!node || paneKey !== "chat" || !event.deltaY || event.ctrlKey) return;
         if (nestedViewportCanScroll(node, event.target, event.deltaY)) return;
         const pending = historyScrollRef.current;
+        // Input can queue while a large page is being laid out. Its timestamp,
+        // not the eventual handler execution time, determines the wheel burst.
+        const gestureTime = event.timeStamp || performance.now();
         if (pending && event.deltaY > 0) historyScrollRef.current = null;
         else if (pending) {
-            if (!pending.applied || performance.now() <= pending.releaseAt) {
-                pending.releaseAt = performance.now() + HISTORY_SCROLL_GESTURE_GAP_MS;
+            if (!pending.applied || gestureTime <= pending.releaseAt) {
+                pending.releaseAt = gestureTime + HISTORY_SCROLL_GESTURE_GAP_MS;
                 event.preventDefault();
                 return;
             }
@@ -1434,7 +1476,7 @@ function useScrollSync(ref, lines, scrollOffset, scrollMode, paneKey, controller
         touchPullRef.current = { startY: null, lastY: null, distance: 0 };
         setTopPullDistance(0);
         if (distance >= TOUCH_TOP_PULL_THRESHOLD_PX
-            && ref.current?.scrollTop <= PROGRAMMATIC_SCROLL_TOLERANCE_PX) requestHistoryPage();
+            && ref.current?.scrollTop <= PROGRAMMATIC_SCROLL_TOLERANCE_PX) requestHistoryPage("touch");
     }, [ref, requestHistoryPage]);
     const onTouchCancel = React.useCallback(() => {
         userScrollRef.current.touching = false;
@@ -10107,7 +10149,14 @@ function Toolbar({ controller, mobile, moa = null, viewNavigation = null, canvas
 
     // Icon-first toolbar: the glyph is the affordance, the label rides a
     // tooltip (desktop hover via title; mobile long-press via IconButton).
+    const remoteExecutionEnabled = controller.isRemoteExecutionEnabled();
     const buttonDefs = [
+        ...(remoteExecutionEnabled ? [{
+            key: "remote",
+            icon: "⇄",
+            label: "Remote execution — chat on a connected remote machine",
+            onClick: () => controller.handleCommand(UI_COMMANDS.OPEN_REMOTE_EXECUTION).catch(() => {}),
+        }] : []),
         // ONE new-session button, and it opens the chooser. The plain "＋"
         // (default model, generic agent) and "＋⚙" (choose model, then agent)
         // were two buttons for one intent, and the pair cost a slot the phone
@@ -12906,6 +12955,7 @@ function ModalLayer({ controller }) {
         modelPicker: selectModelPickerModal(state),
         reasoningEffortPicker: selectReasoningEffortPickerModal(state),
         contextTierPicker: selectContextTierPickerModal(state),
+        remoteTargetPicker: selectRemoteTargetPickerModal(state),
         sessionAgentPicker: selectSessionAgentPickerModal(state),
         sessionGroupPicker: selectSessionGroupPickerModal(state),
         sessionGroupName: selectSessionGroupNameModal(state),
@@ -12981,6 +13031,7 @@ function ModalLayer({ controller }) {
             "modelPicker",
             "reasoningEffortPicker",
             "contextTierPicker",
+            "remoteTargetPicker",
             "sessionAgentPicker",
             "sessionGroupPicker",
             "artifactPicker",
@@ -13005,6 +13056,7 @@ function ModalLayer({ controller }) {
         modalState.modelPicker?.selectedRowIndex,
         modalState.reasoningEffortPicker?.selectedRowIndex,
         modalState.contextTierPicker?.selectedRowIndex,
+        modalState.remoteTargetPicker?.selectedRowIndex,
         modalState.sessionAgentPicker?.selectedRowIndex,
         modalState.sessionGroupPicker?.selectedRowIndex,
         modalState.artifactPicker?.selectedRowIndex,
@@ -13187,6 +13239,9 @@ function ModalLayer({ controller }) {
     }
     if (modal.type === "contextTierPicker" && modalState.contextTierPicker) {
         return renderListModal(modalState.contextTierPicker, pickerConfirmLabel);
+    }
+    if (modal.type === "remoteTargetPicker" && modalState.remoteTargetPicker) {
+        return renderListModal(modalState.remoteTargetPicker, "Start Chat");
     }
     if (modal.type === "sessionAgentPicker" && modalState.sessionAgentPicker) {
         // Every row is an agent now, so Enter always creates.

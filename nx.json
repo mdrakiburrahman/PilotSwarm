@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "useDaemonProcess": false,
+  "analytics": false,
+  "targetDefaults": {
+    "nx:run-commands": {
+      "cache": false
+    }
+  }
+}

@@ -46,7 +46,7 @@ import {
 const webApp = readFileSync(
     fileURLToPath(new URL("../../react/src/web-app.js", import.meta.url)),
     "utf8",
-);
+).replace(/\r\n/g, "\n");
 
 // ── the fold: state and reducer ─────────────────────────────────────────────
 

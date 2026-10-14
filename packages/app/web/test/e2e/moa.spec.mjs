@@ -517,6 +517,9 @@ test("legacy workspace migrates into one dashboard with responsive controls", as
     }
     await panel(page, "panel-1").getByRole("button", { name: "Split right", exact: true }).click();
     await expect.poll(() => f.settings().moa.version).toBe(3);
+    // Migration itself already writes v3 before the split. Wait for the actual
+    // arrangement to be durably acknowledged before testing its reload.
+    await expect.poll(() => activeMoaDashboard(f.settings().moa).tree.first.type).toBe("split");
     expect(Object.keys(f.settings().moa).sort()).toEqual(["activeDashboardId", "composerMode", "dashboards", "version"]);
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.reload(); await open(page);

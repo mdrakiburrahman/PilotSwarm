@@ -105,13 +105,18 @@ for (const gesture of ["wheel", "touch"]) test(`a delayed backward page advances
     await expect.poll(() => backwardRequests.length).toBe(1);
     for (let i = 0; i < 4; i++) await pull();
     releasePage();
-    await expect(page.getByText("older message 692").first()).toBeAttached();
+    // Read cheap DOM/state readiness before continuing the SAME gesture.
+    // A whole-page text-selector traversal can outlast the wheel idle gap,
+    // turning the following wheel into a fresh intentional gesture instead.
+    await expect.poll(() => viewport.evaluate(node =>
+        node.textContent.includes("older message 692") && node.scrollTop > 16)).toBe(true);
     if (gesture === "wheel") await pull();
     if (gesture === "touch") {
         // A fling can emit scroll events even after touchmove has stopped.
         await viewport.evaluate(node => { node.scrollTop = 0; node.dispatchEvent(new Event("scroll")); });
     }
     const anchorAfter = await anchor.boundingBox();
+    await expect(page.getByText("older message 692").first()).toBeAttached();
     // WebKit rounds scrollTop to whole pixels while text boxes are fractional.
     expect(Math.abs(anchorAfter.y - anchorBefore.y - 16), "a page boundary advances only one 16px scroll row").toBeLessThan(1);
     expect(backwardRequests).toHaveLength(1);
@@ -122,8 +127,11 @@ for (const gesture of ["wheel", "touch"]) test(`a delayed backward page advances
         // Native touch momentum changes scrollTop; Playwright's mouse wheel is
         // not reliable in a mobile viewport, so model that browser scroll.
         await viewport.evaluate(node => {
+            const finger = new Touch({ identifier: 2, target: node, clientX: 100, clientY: 300 });
+            node.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [finger] }));
             node.scrollTop = Math.max(0, node.scrollTop - 40);
             node.dispatchEvent(new Event("scroll", { bubbles: true }));
+            node.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [] }));
         });
     } else await page.mouse.wheel(0, -40);
     await expect.poll(async () => (await anchor.boundingBox()).y - anchorAfter.y).toBeCloseTo(40, 0);

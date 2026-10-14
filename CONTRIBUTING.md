@@ -47,12 +47,25 @@
 
    Live agents need a GitHub account with Copilot access.
 
+1. Run in another terminal:
+
+   To see the Remote Execution relay listeners in the UI, sign in to Azure on the
+   host (`az login`) and keep the token refresher running in a second terminal. The
+   portal container reads the token from `/tmp/ps-relay/token`; without it the
+   relay list stays empty:
+
+   ```bash
+   scripts/relay-token.sh --loop   # writes the token now, then refreshes every 30 minutes
+   ```
+
 1. Run the full UI stack (PostgreSQL plus the web portal with two workers)
    using `compose.ui.yml`, from the WSL checkout:
 
-```bash
-export CI=true
-npx nx run local:ui-up      # build, start, wait until healthy; then open http://localhost:3002
-npx nx run local:ui-logs    # follow the portal log
-npx nx run local:ui-down    # stop (the database volume is kept)
-```
+   ```bash
+   sudo chmod 666 /var/run/docker.sock
+
+   export CI=true
+   npx nx run local:ui-up      # build, start, wait until healthy; then open http://localhost:3002
+   npx nx run local:ui-logs    # follow the portal log
+   npx nx run local:ui-down    # stop (the database volume is kept)
+   ```
